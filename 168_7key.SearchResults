@@ -1,7 +1,7 @@
----- MSG_IR_ON_OFF Matches (7 in 4 files) ----
-Adc_key.c (key):	{MSG_IR_ON_OFF,	MSG_IR_ON_OFF,	MSG_NONE,		MSG_NONE	},	//SW4
-Ir_key.c (key):	{MSG_MODE_SW,			MSG_IR_ON_OFF,		MSG_NONE,					MSG_NONE	},	//SW3
-Key.c (key):		if(!IrIsOn && (Event != MSG_IR_ON_OFF))
-Key.c (key):		if(Event == MSG_IR_ON_OFF)
-Key.c (key):		if(Event != MSG_IR_ON_OFF && Event != MSG_NONE && Event != MSG_VOL_ADD && Event != MSG_VOL_SUB)
-Message.h (system):	MSG_IR_ON_OFF,
+---- BT_BtPOWEROFF_TIME Matches (6 in 4 files) ----
+Bt.c (bluetooth):		TimeOutSet(&CSR_BTPOWEROFF_TIME, BT_BtPOWEROFF_TIME);
+Bt.c (bluetooth):		TimeOutSet(&CSR_BTPOWEROFF_TIME, BT_BtPOWEROFF_TIME);
+Key.c (key):		TimeOutSet(&CSR_BTPOWEROFF_TIME, BT_BtPOWEROFF_TIME);
+Key.c (key):		TimeOutSet(&SDCARDPOWEROFF_TIME, BT_BtPOWEROFF_TIME);
+Playctrl.c (play):		TimeOutSet(&SDCARDPOWEROFF_TIME, BT_BtPOWEROFF_TIME);
+Syscfg.h (config):#define		BT_BtPOWEROFF_TIME	(DWORD)(600000)///10min 5000//5s///5000//5s use debug

@@ -52,9 +52,10 @@
 //#define AU6210K_NR_D_8_CSRBT     //ID=581
 //#define AU6210K_LK_SJ_CSRBT     //莱卡·户外
 #define AU6210K_ZB_BT007_CSR    //智博bt007 key 
+#define AU6210K_XLX_ALD800  // 新联芯ADL800:oem智博bt007 <FM+LINE+CSRBT>
 
 #ifdef AU6210K_ZB_BT007_CSR
-#define AU6210K_ZB_BT007_IR_IC_IS_334M_CSR  //移动电源的案子    //与智博bt007 仅有部分功能不同: ir ic  //168
+//#define AU6210K_ZB_BT007_IR_IC_IS_334M_CSR  //移动电源的案子    //与智博bt007 仅有部分功能不同: ir ic  //168
 #endif
 
 
@@ -76,7 +77,7 @@
 //#define FUNC_USB_EN					//USB HOST功能(可连接U盘播歌)
 #endif
 
-#if defined(AU6210K_LK_SJ_CSRBT)
+#if defined(AU6210K_XLX_ALD800) 
 #else
 #define FUNC_CARD_EN				//CARD HOST功能(可连接SD/TF卡播歌),卡检测引脚配置见下面
 #endif
@@ -84,8 +85,12 @@
 #define FUNC_LINEIN_EN				
 
 #if defined(AU6210K_NR_D_8_CSRBT)||defined(AU6210K_ZB_BT007_CSR)
-#else
+#else//no use radio
 #define FUNC_RADIO_EN				//Radio功能,该型号芯片内部集成高性能FM模块
+#endif
+
+if defined(AU6210K_XLX_ALD800)//ald800 use radio
+#define FUNC_RADIO_EN	
 #endif
 
 #ifdef AU6210K_ZB_BT007_CSR
@@ -452,14 +457,18 @@
 
 #define POWER_SAVING_MODE_SLEEP			0
 #define POWER_SAVING_MODE_POWERDOWN		1
-#define POWER_SAVING_MODE_OPTION		POWER_SAVING_MODE_SLEEP////POWER_SAVING_MODE_POWERDOWN	//
+#define POWER_SAVING_MODE_OPTION		POWER_SAVING_MODE_POWERDOWN////POWER_SAVING_MODE_POWERDOWN	//
 
 #if (POWER_SAVING_MODE_OPTION == POWER_SAVING_MODE_POWERDOWN)	//设置系统省电模式为POWERDOWN
 	//POWERDOWN方式: 系统关闭时关闭片内LDO，系统唤醒时片内LDO先上电
 	//该方式要求芯片带POWER_KEY引脚，可以实现极低功耗(powerdown)下保留重要信息的要求
 	//选择该方式后，默认系统包含POWER_KEY功能(必须选择带POWER KEY的芯片型号)
 	#if defined(AU6210K_ZB_BT007_CSR) || defined(AU6210K_LK_SJ_CSRBT)
-	 #define PWR_KEY_MODE	 PWR_KEY_SLIDE_SWITCH	//PWR_KEY_PUSH_BUTTON
+		#ifdef AU6210K_XLX_ALD800
+		#define PWR_KEY_MODE	 PWR_KEY_PUSH_BUTTON
+		#else
+	 	#define PWR_KEY_MODE	 PWR_KEY_SLIDE_SWITCH	//PWR_KEY_PUSH_BUTTON
+		#endif
 	#else
      #define PWR_KEY_MODE	 PWR_KEY_PUSH_BUTTON
 	#endif
@@ -888,6 +897,7 @@
 	#define	MASK_BIT_SDA 		(1 << 7)
 #else
 	//SCL: GPIO_B[2]
+	/*
 	#define PORT_OUT_SCL		GPIO_B_OUT
 	#define PORT_IN_SCL			GPIO_B_IN
 	#define PORT_IE_SCL			GPIO_B_IE
@@ -905,7 +915,7 @@
 	#define PORT_DS_SDA			GPIO_B_DS
 	#define PORT_PU_SDA			GPIO_B_PU
 	#define PORT_PD_SDA			GPIO_B_PD
-	#define	MASK_BIT_SDA 		(1 << 3)
+	#define	MASK_BIT_SDA 		(1 << 3)*/
 #endif	
 #endif	
 

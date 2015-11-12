@@ -132,13 +132,14 @@ VOID main()
 	SlaveCtrlInit();
 #endif*/
 	
-
+#ifndef AU6210K_XLX_ALD800  //no use
 	baGPIOCtrl[GPIO_A_IE] |= 0x40;//A2
 	baGPIOCtrl[GPIO_A_OE] &= ~0x40;
 	baGPIOCtrl[GPIO_A_PU] |= 0x40;
 	baGPIOCtrl[GPIO_A_PD] |= 0x40; 
 	baGPIOCtrl[GPIO_A_OUT] &= ~0x40; //A2
 	WaitMs(2);
+#endif
 
 	DBG1(("******* Welcome to use MVsilicon's chip! *******\n"));
 
