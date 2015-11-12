@@ -1,0 +1,1 @@
+"radio\radio_ctrl.c" LARGE OBJECTADVANCED OPTIMIZE (9,SIZE) BROWSE INCDIR(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\radio_ctrl.lst) OBJECT(.\output\obj\radio_ctrl.obj)

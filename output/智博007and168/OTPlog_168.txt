@@ -1,0 +1,11 @@
+
+*--------------------------------------------*
+* 星期五 十一月 7 2014 15:59:10
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v35.hex
+Download Size : 32704 bytes
+CheckSum      : 61
+IsBitFlip     : 0
+11月7日可以，准备下单

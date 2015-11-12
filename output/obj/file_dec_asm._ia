@@ -1,0 +1,1 @@
+"play\file_dec_asm.A51" SET (LARGE) DEBUG PRINT(.\output\lst\file_dec_asm.lst) OBJECT(.\output\obj\file_dec_asm.obj) EP

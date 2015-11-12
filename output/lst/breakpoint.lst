@@ -1,0 +1,769 @@
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE BREAKPOINT
+OBJECT MODULE PLACED IN .\output\obj\breakpoint.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE system\breakpoint.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR
+                    -(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;
+                    -.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\breakpoint.lst) OBJECT(.\output\obj\breakpoint.obj)
+
+line level    source
+
+   1          #include "syscfg.h"
+   2          #include "playctrl.h"
+   3          #include "breakpoint.h"
+   4          #include "sysctrl.h"
+   5          #include "debug.h"
+   6          #include "24cxx.h"
+   7          #include "dir.h"
+   8          #include "nvm.h"
+   9          #include "user_interface.h"
+  10          
+  11          
+  12          #ifdef FUNC_BREAK_POINT_EN
+  13          
+  14          #define BP_POS_CRC8CHECKCODE    (sizeof(BP_POWERMEM) - 1)
+  15          
+  16          BYTE    gFileNameCrc8 = 0;
+  17          WORD    gCurFileNum = 0;
+  18          WORD    gCurFileNumInFolder = 0;
+  19          WORD    gCurFolderNum = 0;
+  20          BOOL    gIsFindLastestSong = FALSE;
+  21          BOOL    gIsEEPROMExist  = FALSE;
+  22          BP_INFO gBreakPointInfo _at_ 0x06D9;
+  23          
+  24          
+  25          // Save the break point information.
+  26          extern BYTE gWakeupTrigFlg;
+  27          extern PLAY_CTRL gPlayCtrl;
+  28          extern VOID SetRtcAlarmValid(VOID);
+  29          
+  30          #ifdef FUNC_UARTDBG_EN
+              VOID BP_InfoDisplay(VOID)
+              {
+                      DBG(("**********************************\n"));
+                      DBG(("*  Signature:%X\n", (WORD)gBreakPointInfo.PowerMemory.Signature));                
+                      DBG(("*\n"));
+                      
+                      DBG(("*  USB_FolderEnFlag:%d\n", (WORD)gBreakPointInfo.PowerMemory.USB_FolderEnFlag));          
+                      DBG(("*  USB_FileAddress:%lu\n", (DWORD)gBreakPointInfo.PowerMemory.USB_FileAddress));
+                      DBG(("*  USB_FileNameCRC8:0x%bx\n", gBreakPointInfo.PowerMemory.USB_FileNameCRC8));
+                      DBG(("*  USB_PlaySeconds:%lu\n", (DWORD)gBreakPointInfo.PowerMemory.USB_CurPlayTime));
+              
+              
+                      DBG(("*  SD_FolderEnFlag:%d\n", (WORD)gBreakPointInfo.PowerMemory.SD_FolderEnFlag));            
+                      DBG(("*  SD_FileAddress:%lu\n", (DWORD)gBreakPointInfo.PowerMemory.SD_FileAddress));
+                      DBG(("*  SD_FileNameCRC8:0x%bx\n", gBreakPointInfo.PowerMemory.SD_FileNameCRC8));
+                      DBG(("*  SD_PlaySeconds:%lu\n", (DWORD)gBreakPointInfo.PowerMemory.SD_CurPlayTime));
+                      DBG(("*\n"));   
+              
+                      DBG(("*\n"));   
+                      DBG(("*  SystemMode:%bu\n", gBreakPointInfo.PowerMemory.SystemMode));
+                      DBG(("*\n"));   
+                      DBG(("*  Volume:%bd(Flag:0x%bx)\n", (gBreakPointInfo.PowerMemory.Volume&MASK_BP_VOLUME), (gBreakPointInfo
+             -.PowerMemory.Volume & MASK_BP_VOLFLAG)));
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 2   
+
+                      //DBG(("*  Eq:%d\n", (WORD)gBreakPointInfo.Eq));
+                      //DBG(("*  Mode:%d\n", (WORD)gBreakPointInfo.RepeatMode));
+              #ifdef FUNC_RADIO_EN    
+                      DBG(("*\n"));
+                      DBG(("*  BandXtalSel:%bu\n", gBreakPointInfo.PowerMemory.RadioData2Store.BandXtalSel));//基本配置便于扩充
+             -               
+                      DBG(("*  CurrFreq:%u\n",(WORD)gBreakPointInfo.PowerMemory.RadioData2Store.CurrFreq));//当前频率
+                      DBG(("*  CurrFreq:%u\n",(WORD)gBreakPointInfo.PowerMemory.RadioData2Store.CurrStation));//当前台号// Star
+             -t from 1,0表示没有台
+                      DBG(("*  CurrFreq:%u\n",(WORD)gBreakPointInfo.PowerMemory.RadioData2Store.Area1StationSum));//760~874区间
+             -的频道数        
+                      DBG(("*  CurrFreq:%u\n",(WORD)gBreakPointInfo.PowerMemory.RadioData2Store.StationSum));//总的有效台数目(7
+             -60~874 + 875~1080)// Start from 1,0表示没有台
+              #endif
+              
+                      DBG(("*  CRC8:%bu\n",gBreakPointInfo.PowerMemory.EepRomCRC8));
+                      DBG(("**********************************\n"));
+              }
+              #endif
+  68          
+  69          
+  70          #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+              VOID IsEepromValid(BYTE CheckMod)
+              {
+                      if(CheckMod == EEPROM_CHECK_WRITE_READ)
+                      {
+                              EEPROM_WriteByte(EEPROM_ADDR_BP_SIGNATURE, BP_SIGNATURE);       
+                      }
+              
+                      if(EEPROM_ReadByte(EEPROM_ADDR_BP_SIGNATURE) != BP_SIGNATURE)
+                      {
+                              gIsEEPROMExist = FALSE;
+                      }
+                      else
+                      {
+                              gIsEEPROMExist = TRUE;
+                      }
+              }
+              #endif
+  88          
+  89          
+  90          BOOL IsBPValid(VOID)
+  91          {
+  92   1              if(gBreakPointInfo.PowerMemory.Signature == BP_SIGNATURE)
+  93   1              {
+  94   2                      return TRUE;
+  95   2              }
+  96   1              return FALSE;   
+  97   1      }
+  98          
+  99          
+ 100          // 在BP_LoadInfo()函数中调用一次
+ 101          // 对文件夹进行非法值纠正并存入记忆单元
+ 102          // 需要
+ 103          VOID CheckBPDataValid(VOID) 
+ 104          {
+ 105   1              BYTE Temp;
+ 106   1      
+ 107   1      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                      Temp = EEPROM_ReadByte((BYTE*)(&gBreakPointInfo.PowerMemory.SD_FolderEnFlag) - (BYTE*)(&gBreakPointInfo.P
+             -owerMemory));
+              #elif (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 3   
+
+ 110   1              Temp = NvmReadOneByte((BYTE*)(&gBreakPointInfo.PowerMemory.SD_FolderEnFlag) - (BYTE*)(&gBreakPointInfo.Po
+             -werMemory));
+ 111   1      #endif
+ 112   1      
+ 113   1              if(Temp > 1)
+ 114   1              {
+ 115   2      #ifdef FUNC_FOLDER_EN
+                              gBreakPointInfo.PowerMemory.SD_FolderEnFlag = TRUE;
+              #else
+ 118   2                      gBreakPointInfo.PowerMemory.SD_FolderEnFlag = FALSE;
+ 119   2      #endif
+ 120   2                      BP_SaveInfo((BYTE*)(&gBreakPointInfo.PowerMemory.SD_FolderEnFlag), sizeof(gBreakPointInfo.PowerMemory.SD
+             -_FolderEnFlag));
+ 121   2              }
+ 122   1      
+ 123   1      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                      Temp = EEPROM_ReadByte((BYTE*)(&gBreakPointInfo.PowerMemory.USB_FolderEnFlag) - (BYTE*)(&gBreakPointInfo.
+             -PowerMemory));
+              #elif (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+ 126   1              Temp = NvmReadOneByte((BYTE*)(&gBreakPointInfo.PowerMemory.USB_FolderEnFlag) - (BYTE*)(&gBreakPointInfo.P
+             -owerMemory));
+ 127   1      #endif
+ 128   1      
+ 129   1              if(Temp > 1)
+ 130   1              {
+ 131   2      #ifdef FUNC_FOLDER_EN
+                              gBreakPointInfo.PowerMemory.USB_FolderEnFlag = TRUE;
+              #else
+ 134   2                      gBreakPointInfo.PowerMemory.USB_FolderEnFlag = FALSE;
+ 135   2      #endif
+ 136   2                      BP_SaveInfo((BYTE*)(&gBreakPointInfo.PowerMemory.USB_FolderEnFlag), sizeof(gBreakPointInfo.PowerMemory.U
+             -SB_FolderEnFlag));
+ 137   2              }
+ 138   1      
+ 139   1      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                      Temp = EEPROM_ReadByte((BYTE*)(&gBreakPointInfo.PowerMemory.Volume) - (BYTE*)(&gBreakPointInfo.PowerMemor
+             -y));
+              #elif (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+ 142   1              Temp = NvmReadOneByte((BYTE*)(&gBreakPointInfo.PowerMemory.Volume) - (BYTE*)(&gBreakPointInfo.PowerMemory
+             -));
+ 143   1      #endif
+ 144   1      
+ 145   1              if(Temp != gSys.Volume)
+ 146   1              {
+ 147   2                      BP_SaveInfo((BYTE*)(&gBreakPointInfo.PowerMemory.Volume), sizeof(gBreakPointInfo.PowerMemory.Volume));
+ 148   2              }               
+ 149   1      }
+ 150          
+ 151          // Load break point information from EEPROM
+ 152          // 该函数只在上电时执行一次
+ 153          VOID BP_LoadInfo(VOID)
+ 154          {                       
+ 155   1              BYTE TempCRC8;
+ 156   1      
+ 157   1              //DBG((">>BP_LoadInfo()\n"));
+ 158   1      
+ 159   1      //#ifdef FUNC_UARTDBG_EN
+ 160   1      //      DBG(("********BP_LoadInfo,000********\n"));
+ 161   1      //      BP_InfoDisplay();
+ 162   1      //#endif
+ 163   1      
+ 164   1              TempCRC8 = CRC8Cal(((BYTE*)&gBreakPointInfo.PowerMemory), sizeof(BP_POWERMEM) - 1);
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 4   
+
+ 165   1              //DBG(("Signature:0x%bx, EepRomCRC8:0x%bx, tempCRC8:0x%bx\n", gBreakPointInfo.PowerMemory.Signature, gBre
+             -akPointInfo.PowerMemory.EepRomCRC8, TempCRC8));
+ 166   1      
+ 167   1              if((!(gWakeupTrigFlg & SYS_ON_FLG_POR)) && (gBreakPointInfo.PowerMemory.Signature == BP_SIGNATURE) && (Te
+             -mpCRC8 == gBreakPointInfo.PowerMemory.EepRomCRC8))
+ 168   1              {
+ 169   2                      //RAM中有数据，无需从EEPROM读取。
+ 170   2                      DBG(("RAM data valid\n"));
+ 171   2                      //DBG(("BP_LoadInfo,Valid!USB_CurPlayTime:%u, SD_CurPlayTime:%u.\n", gBreakPointInfo.PowerMemory.USB_Cur
+             -PlayTime, gBreakPointInfo.PowerMemory.SD_CurPlayTime));
+ 172   2                      gWakeupTrigFlg = 0;
+ 173   2                      //DBG(("BP_WakeUp!\n"));
+ 174   2                      gSys.SystemMode = gBreakPointInfo.PowerMemory.SystemMode;
+ 175   2                      gSys.Volume = gBreakPointInfo.PowerMemory.Volume & MASK_BP_VOLUME;
+ 176   2                      DBG(("gSys.Volume11111111111111 = %x\n",gSys.Volume));  
+ 177   2      DBG(("gBreakPointInfo.PowerMemory.Volume11 = %x\n",gBreakPointInfo.PowerMemory.Volume));        
+ 178   2      
+ 179   2                      if(gSys.Volume > VOLUME_MAX) 
+ 180   2                      {
+ 181   3                              gSys.Volume = VOLUME_INIT;
+ 182   3                      }       
+ 183   2                      
+ 184   2                      if(gBreakPointInfo.Eq >= DECD_EQ_SUM)
+ 185   2                      {
+ 186   3                              gBreakPointInfo.Eq = DECD_EQ_NORMAL;
+ 187   3                      }
+ 188   2                      
+ 189   2                      if(gBreakPointInfo.RepeatMode >= REPEAT_MODE_SUM)
+ 190   2                      {
+ 191   3                              gBreakPointInfo.RepeatMode = REPEAT_ALL;
+ 192   3                      }
+ 193   2                      
+ 194   2                      gPlayCtrl.Eq = gBreakPointInfo.Eq;
+ 195   2                      gPlayCtrl.RepeatMode = gBreakPointInfo.RepeatMode;
+ 196   2                      
+ 197   2                      if(gSys.SystemMode == SYS_MODE_USB)
+ 198   2                      {
+ 199   3                              gFileNameCrc8 = gBreakPointInfo.PowerMemory.USB_FileNameCRC8;
+ 200   3                              gPlayCtrl.File.StartSec = gBreakPointInfo.PowerMemory.USB_FileAddress;//文件地址
+ 201   3                              gSongInfo.CurPlayTime = gBreakPointInfo.PowerMemory.USB_CurPlayTime;
+ 202   3      #ifdef FUNC_FOLDER_EN
+                                      gPlayCtrl.FolderEnable = gBreakPointInfo.PowerMemory.USB_FolderEnFlag;
+              #else
+ 205   3                              gPlayCtrl.FolderEnable = FALSE;
+ 206   3      #endif
+ 207   3                      }
+ 208   2                      else if(gSys.SystemMode == SYS_MODE_SD)
+ 209   2                      {
+ 210   3                              gFileNameCrc8 = gBreakPointInfo.PowerMemory.SD_FileNameCRC8;
+ 211   3                              gPlayCtrl.File.StartSec = gBreakPointInfo.PowerMemory.SD_FileAddress;
+ 212   3                              gSongInfo.CurPlayTime = gBreakPointInfo.PowerMemory.SD_CurPlayTime;
+ 213   3      #ifdef FUNC_FOLDER_EN
+                                      gPlayCtrl.FolderEnable = gBreakPointInfo.PowerMemory.SD_FolderEnFlag;
+              #else
+ 216   3                              gPlayCtrl.FolderEnable = FALSE;
+ 217   3      #endif
+ 218   3                      }
+ 219   2                      if(gPlayCtrl.FolderEnable > 1)
+ 220   2                      {
+ 221   3                              gPlayCtrl.FolderEnable = FALSE;
+ 222   3                      }
+ 223   2      
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 5   
+
+ 224   2                      //DBG(("SysMode:%bd, Volume:%bd, Eq:%bd, RepeatMode:%bd, FolderEnable:%bd, CurPlayTime:%ld\n", gSys.Syst
+             -emMode, gSys.Volume, gPlayCtrl.Eq, gPlayCtrl.RepeatMode, gPlayCtrl.FolderEnable, gSongInfo.CurPlayTime));
+ 225   2                      return; 
+ 226   2              }
+ 227   1      
+ 228   1              memset(&gBreakPointInfo, 0, sizeof(gBreakPointInfo));   
+ 229   1      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                      EEPROM_ReadBytes(0, (BYTE XDATA*)&gBreakPointInfo.PowerMemory, sizeof(BP_POWERMEM));
+              #elif (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+ 232   1              NvmReadMulti(0, (BYTE XDATA*)&gBreakPointInfo.PowerMemory, sizeof(BP_POWERMEM));
+ 233   1      #endif
+ 234   1      
+ 235   1      #ifdef FUNC_UARTDBG_EN
+                      DBG(("********BP_LoadInfo,001********\n"));
+                      BP_InfoDisplay();
+              #endif
+ 239   1              
+ 240   1      #ifdef FUNC_SAVE_PLAYTIME_EN
+                      if(gBreakPointInfo.PowerMemory.Signature != BP_SIGNATURE)
+              #else
+ 243   1              TempCRC8 = CRC8Cal(((BYTE*)&gBreakPointInfo.PowerMemory), sizeof(BP_POWERMEM) - 1);
+ 244   1      DBG(("gBreakPointInfo.PowerMemory.Signature = %x\n",gBreakPointInfo.PowerMemory.Signature));    
+ 245   1      DBG(("gBreakPointInfo.PowerMemory.EepRomCRC8 = %x\n",gBreakPointInfo.PowerMemory.EepRomCRC8));  
+ 246   1      DBG(("TempCRC8 = %x\n",TempCRC8));      
+ 247   1      
+ 248   1              if((gBreakPointInfo.PowerMemory.Signature != BP_SIGNATURE)
+ 249   1              || (gBreakPointInfo.PowerMemory.EepRomCRC8 != TempCRC8))//数据无效！
+ 250   1      #endif
+ 251   1              {       
+ 252   2      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                              IsEepromValid(EEPROM_CHECK_WRITE_READ);
+                              if(gIsEEPROMExist == FALSE)//EEPROM不存在或坏掉了
+                              {
+                                      gSys.SystemMode = SYS_MODE_NONE;
+                                      gSys.Volume = VOLUME_INIT;
+                                      //gPlayCtrl.Eq = DECD_EQ_NORMAL;
+                                      //gPlayCtrl.RepeatMode = REPEAT_ALL;
+              #ifdef FUNC_FOLDER_EN
+                                      gPlayCtrl.FolderEnable = TRUE;
+              #else
+                                      gPlayCtrl.FolderEnable = FALSE;
+              #endif
+              
+              #ifdef FUNC_UARTDBG_EN
+                                      DBG(("00,EEPROM not exist!\n"));
+              #endif          
+                              }       
+                              else//只是数据无效
+              #elif (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+ 272   2      #endif          
+ 273   2                      {       
+ 274   3                              DBG(("Break point information is invalid!\n"));
+ 275   3                              gIsEEPROMExist = TRUE;
+ 276   3                              //赋初值
+ 277   3                              //memset(&gBreakPointInfo, 0, sizeof(BP_INFO));
+ 278   3                              
+ 279   3                              gBreakPointInfo.Eq = DECD_EQ_NORMAL;
+ 280   3                              gBreakPointInfo.RepeatMode = REPEAT_ALL;
+ 281   3                              gBreakPointInfo.PowerMemory.Signature = BP_SIGNATURE;
+ 282   3                              gBreakPointInfo.PowerMemory.SystemMode = SYS_MODE_USB;
+ 283   3      #ifdef FUNC_FOLDER_EN
+                                      gBreakPointInfo.PowerMemory.USB_FolderEnFlag = TRUE;
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 6   
+
+                                      gBreakPointInfo.PowerMemory.SD_FolderEnFlag = TRUE;
+              #else
+ 287   3                              gBreakPointInfo.PowerMemory.USB_FolderEnFlag = FALSE;
+ 288   3                              gBreakPointInfo.PowerMemory.SD_FolderEnFlag = FALSE;
+ 289   3      #endif
+ 290   3                      
+ 291   3                              gSys.SystemMode = SYS_MODE_NONE;
+ 292   3                              gSys.Volume = VOLUME_INIT;
+ 293   3      
+ 294   3      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                                      gBreakPointInfo.PowerMemory.USB_CurPlayTime = 0;
+                                      gBreakPointInfo.PowerMemory.SD_CurPlayTime = 0;
+              #elif(FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+ 298   3      #endif
+ 299   3      
+ 300   3      //#ifdef FUNC_UARTDBG_EN
+ 301   3      //                      DBG(("********BP_LoadInfo,002********\n"));
+ 302   3      //                      BP_InfoDisplay();
+ 303   3      //#endif        
+ 304   3                      }                       
+ 305   2              }
+ 306   1              else    //数据有效！
+ 307   1              {
+ 308   2                      DBG(("Break point information is valid!\n"));
+ 309   2                      gIsEEPROMExist = TRUE;
+ 310   2      
+ 311   2      #ifdef  FUNC_ALARM_EN
+              #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                              SetRtcAlarmValid(); //RTC闹钟有效处理
+              #endif
+              #endif
+ 316   2                      //优先选择原来的设备模式
+ 317   2                      gSys.SystemMode = BP_GetSystemMode();
+ 318   2                      gSys.Volume = gBreakPointInfo.PowerMemory.Volume & MASK_BP_VOLUME;      
+ 319   2      DBG(("gBreakPointInfo.PowerMemory.Volume = %x\n",gBreakPointInfo.PowerMemory.Volume));  
+ 320   2      DBG(("gSys.Volume = %x\n",gSys.Volume));        
+ 321   2      
+ 322   2                      if(gSys.Volume > VOLUME_MAX) 
+ 323   2                      {
+ 324   3                              gSys.Volume = VOLUME_INIT;
+ 325   3                              //DBG(("Volume valid(%bd)!\n", gBreakPointInfo.PowerMemory.Volume));    
+ 326   3                      }
+ 327   2      #if 0 //ndef FUNC_RESTORE_VOLUME
+                              if((gSys.Volume > 28) || (gSys.Volume < 10))
+                              {
+                                      gSys.Volume = VOLUME_INIT;
+                                      //DBG(("Volume valid(%bd)!\n", gBreakPointInfo.PowerMemory.Volume));    
+                              }
+              #endif
+ 334   2                      DBG(("Volume valid(%bu)!\n", gBreakPointInfo.PowerMemory.Volume));
+ 335   2                      if(gBreakPointInfo.Eq >= DECD_EQ_SUM)
+ 336   2                      {
+ 337   3                              gBreakPointInfo.Eq = DECD_EQ_NORMAL;
+ 338   3                      }
+ 339   2                      if(gBreakPointInfo.RepeatMode >= REPEAT_MODE_SUM)
+ 340   2                      {
+ 341   3                              gBreakPointInfo.RepeatMode = REPEAT_ALL;
+ 342   3                      }
+ 343   2      
+ 344   2      #ifdef FUNC_FOLDER_EN
+                              if(gBreakPointInfo.PowerMemory.USB_FolderEnFlag > 1)
+                              {
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 7   
+
+                                      gBreakPointInfo.PowerMemory.USB_FolderEnFlag = TRUE;
+                              }
+                              if(gBreakPointInfo.PowerMemory.SD_FolderEnFlag > 1)
+                              {
+                                      gBreakPointInfo.PowerMemory.SD_FolderEnFlag = TRUE;
+                              }
+              #else
+ 354   2                      gBreakPointInfo.PowerMemory.USB_FolderEnFlag = FALSE;
+ 355   2                      gBreakPointInfo.PowerMemory.SD_FolderEnFlag = FALSE;
+ 356   2      #endif
+ 357   2      
+ 358   2                      if(gSys.SystemMode == SYS_MODE_USB)
+ 359   2                      {
+ 360   3                              gPlayCtrl.FolderEnable = gBreakPointInfo.PowerMemory.USB_FolderEnFlag;
+ 361   3                              gFileNameCrc8 = gBreakPointInfo.PowerMemory.USB_FileNameCRC8;
+ 362   3                              gPlayCtrl.File.StartSec = gBreakPointInfo.PowerMemory.USB_FileAddress;//文件地址
+ 363   3                      }
+ 364   2                      else if(gSys.SystemMode == SYS_MODE_SD)
+ 365   2                      {
+ 366   3                              gPlayCtrl.FolderEnable = gBreakPointInfo.PowerMemory.SD_FolderEnFlag;
+ 367   3                              gFileNameCrc8 = gBreakPointInfo.PowerMemory.SD_FileNameCRC8;
+ 368   3                              gPlayCtrl.File.StartSec = gBreakPointInfo.PowerMemory.SD_FileAddress;
+ 369   3                      }
+ 370   2      
+ 371   2                      gPlayCtrl.Eq = gBreakPointInfo.Eq;
+ 372   2                      gPlayCtrl.RepeatMode = gBreakPointInfo.RepeatMode;
+ 373   2      
+ 374   2      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+              #ifdef FUNC_SAVE_PLAYTIME_EN
+                              if(!gSavePlayTimeEnFlag)
+                              {                      
+                                      if(gBreakPointInfo.PowerMemory.USB_CurPlayTime)
+                                      {
+                                              gBreakPointInfo.PowerMemory.USB_CurPlayTime = 0;
+                                              DBG(("BP_SavePlayTime USB_CurPlayTime = 0\n")); 
+                                              BP_SavePlayTime((BYTE*)(&gBreakPointInfo.PowerMemory.USB_CurPlayTime), sizeof(gBreakPointInfo.PowerMem
+             -ory.USB_CurPlayTime));        
+                                      }
+                                      
+                                      if(gBreakPointInfo.PowerMemory.SD_CurPlayTime)
+                                      {
+                                              gBreakPointInfo.PowerMemory.SD_CurPlayTime = 0;
+                                              DBG(("BP_SavePlayTime SD_CurPlayTime = 0\n"));  
+                                              BP_SavePlayTime((BYTE*)(&gBreakPointInfo.PowerMemory.SD_CurPlayTime), sizeof(gBreakPointInfo.PowerMemo
+             -ry.SD_CurPlayTime));
+                                      }
+                              }       
+              #else
+                              gBreakPointInfo.PowerMemory.USB_CurPlayTime = 0;
+                              gBreakPointInfo.PowerMemory.SD_CurPlayTime = 0;
+              #endif
+              
+              #elif(FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+ 398   2      #endif
+ 399   2                              
+ 400   2      //#ifdef FUNC_UARTDBG_EN
+ 401   2      //              DBG(("********BP_LoadInfo,003********\n"));
+ 402   2      //              BP_InfoDisplay();
+ 403   2      //#endif        
+ 404   2              }
+ 405   1              CheckBPDataValid();
+ 406   1      }
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 8   
+
+ 407          
+ 408          
+ 409          // Save break point information to EEPROM
+ 410          VOID BP_SaveInfo(BYTE* Data, BYTE Size)
+ 411          {
+ 412   1      //      DBG((">>BP_SaveInfo()\n"));
+ 413   1              //不存入E2P
+ 414   1              gBreakPointInfo.Eq = gPlayCtrl.Eq;
+ 415   1              gBreakPointInfo.RepeatMode = gPlayCtrl.RepeatMode;
+ 416   1      
+ 417   1              if(gBreakPointInfo.Eq >= DECD_EQ_SUM)
+ 418   1              {
+ 419   2                      gBreakPointInfo.Eq = DECD_EQ_NORMAL;
+ 420   2              }
+ 421   1      
+ 422   1              if(gBreakPointInfo.RepeatMode >= REPEAT_MODE_SUM)
+ 423   1              {
+ 424   2                      gBreakPointInfo.RepeatMode = REPEAT_ALL;
+ 425   2              }       
+ 426   1      
+ 427   1              gBreakPointInfo.PowerMemory.Signature = BP_SIGNATURE;
+ 428   1      
+ 429   1              if(gSys.SystemMode != SYS_MODE_NONE)
+ 430   1              {
+ 431   2                      gBreakPointInfo.PowerMemory.SystemMode = gSys.SystemMode;
+ 432   2              }
+ 433   1              
+ 434   1              gBreakPointInfo.PowerMemory.Volume = gSys.Volume;
+ 435   1      #ifdef FUNC_RESTORE_VOLUME
+                      gBreakPointInfo.PowerMemory.Volume |= MASK_BP_VOLFLAG;
+              #endif
+ 438   1      
+ 439   1              if(gPlayCtrl.FolderEnable > 1)
+ 440   1              {
+ 441   2      #ifdef FUNC_FOLDER_EN
+                              gPlayCtrl.FolderEnable = TRUE;
+              #else
+ 444   2                      gPlayCtrl.FolderEnable = FALSE;
+ 445   2      #endif
+ 446   2              }
+ 447   1              
+ 448   1              if(gSys.SystemMode == SYS_MODE_USB)
+ 449   1              {
+ 450   2                      gBreakPointInfo.PowerMemory.USB_FolderEnFlag = gPlayCtrl.FolderEnable;
+ 451   2                      gBreakPointInfo.PowerMemory.USB_FileNameCRC8 = gFileNameCrc8;
+ 452   2                      gBreakPointInfo.PowerMemory.USB_FileAddress = gPlayCtrl.File.StartSec;//文件地址
+ 453   2      
+ 454   2      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                              gSongInfo.CurPlayTime = gBreakPointInfo.PowerMemory.USB_CurPlayTime;
+                              gBreakPointInfo.PowerMemory.USB_CurPlayTime = 0;
+              #endif
+ 458   2              }
+ 459   1              else if(gSys.SystemMode == SYS_MODE_SD)
+ 460   1              {
+ 461   2                      gBreakPointInfo.PowerMemory.SD_FolderEnFlag = gPlayCtrl.FolderEnable;
+ 462   2                      gBreakPointInfo.PowerMemory.SD_FileNameCRC8 = gFileNameCrc8;
+ 463   2                      gBreakPointInfo.PowerMemory.SD_FileAddress = gPlayCtrl.File.StartSec;//DirGetSonClusNum();//文件地址
+ 464   2      
+ 465   2      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)          
+                              gSongInfo.CurPlayTime = gBreakPointInfo.PowerMemory.SD_CurPlayTime;
+                              gBreakPointInfo.PowerMemory.SD_CurPlayTime = 0;
+              #endif
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 9   
+
+ 469   2              }
+ 470   1      
+ 471   1              //对E2PROM 内容做CRC8 校验
+ 472   1              gBreakPointInfo.PowerMemory.EepRomCRC8 = CRC8Cal(((BYTE*)&gBreakPointInfo.PowerMemory), sizeof(BP_POWERME
+             -M) - 1);
+ 473   1      
+ 474   1              if((Data != NULL) && (Size != 0))
+ 475   1              {               
+ 476   2      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                              if(gIsEEPROMExist == TRUE)
+                              {               
+              #if (I2C_PIN_CONFIGURE == SDIO_TO_A3A4A5)
+              #if defined(SD_DETECT_PIN_USE_A4)
+                                      SetGpioRegBit(CARD_DETECT_PORT_PD, CARD_DETECT_BIT);
+              #endif
+                                      SET_CARD_NOT_TO_GPIO(); //add for I2C clk & data multiplexed with SDIO clk & data
+              #endif          
+                                      EEPROM_WriteByte(0, BP_SIGNATURE);
+                                      EEPROM_WriteBytes(Data - (BYTE*)(&gBreakPointInfo.PowerMemory), Data, Size);                    
+                                      EEPROM_WriteByte(BP_POS_CRC8CHECKCODE, gBreakPointInfo.PowerMemory.EepRomCRC8);
+                                      
+                                      IsEepromValid(EEPROM_CHECK_READ);
+              #ifdef FUNC_UARTDBG_EN
+                                      if(gIsEEPROMExist == FALSE)
+                                      {
+                                              DBG(("11,EEPROM not exist!\n"));
+                                      }
+              #endif
+              
+              #if (I2C_PIN_CONFIGURE == SDIO_TO_A3A4A5)               
+                                      SET_CARD_TO_A3A4A5(); //add for I2C clk & data multiplexed with SDIO clk & data
+              #if defined(SD_DETECT_PIN_USE_A4)
+                                      ClrGpioRegBit(CARD_DETECT_PORT_PD, CARD_DETECT_BIT);
+              #endif
+              #endif
+                              }
+                              
+              #elif (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+ 506   2                      NvmWriteOneByte(0, BP_SIGNATURE);
+ 507   2                      NvmWriteMulti(Data - (BYTE*)(&gBreakPointInfo.PowerMemory), Data, Size);
+ 508   2                      NvmWriteOneByte(BP_POS_CRC8CHECKCODE, gBreakPointInfo.PowerMemory.EepRomCRC8);
+ 509   2      #endif
+ 510   2              }
+ 511   1      
+ 512   1      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                      if(gSys.SystemMode == SYS_MODE_USB)
+                      {
+                              gBreakPointInfo.PowerMemory.USB_CurPlayTime = gSongInfo.CurPlayTime;
+                      }
+                      else if(gSys.SystemMode == SYS_MODE_SD)
+                      {       
+                              gBreakPointInfo.PowerMemory.SD_CurPlayTime = gSongInfo.CurPlayTime;
+                      }
+              #endif
+ 522   1      }
+ 523          
+ 524          
+ 525          #ifdef FUNC_SAVE_PLAYTIME_EN
+              // Save break point information to EEPROM
+              static DWORD sSavePlayTimeBackup = 0;
+              
+              VOID BP_SavePlayTime(BYTE* Data, BYTE Size)
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 10  
+
+              {
+                      if((Data != NULL) && (Size != 0))
+                      {               
+              #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+                              if(gIsEEPROMExist == TRUE)
+                              {               
+              #if (I2C_PIN_CONFIGURE == SDIO_TO_A3A4A5)
+                                      SetGpioRegBit(CARD_DETECT_PORT_PD, CARD_DETECT_BIT);
+                                      SetGpioRegBit(GPIO_CFG1_SEL, MASK_SD_NOT_TO_GPIO);      //add for I2C clk & data multiplexed with SDIO clk &
+             - data 
+              #endif          
+              
+                                      EEPROM_WriteBytes(Data - (BYTE*)(&gBreakPointInfo.PowerMemory), Data, Size);                    
+              
+              #if (I2C_PIN_CONFIGURE == SDIO_TO_A3A4A5)               
+                                      ClrGpioRegBit(GPIO_CFG1_SEL, MASK_SD_NOT_TO_GPIO);      //add for I2C clk & data multiplexed with SDIO clk &
+             - data
+                                      ClrGpioRegBit(CARD_DETECT_PORT_PD, CARD_DETECT_BIT);
+              #endif
+                              }
+                              
+              #endif
+                      }
+              }
+              
+              
+              VOID BP_UpdatePlayTime(VOID)
+              {
+                      if(gSys.SystemMode == SYS_MODE_USB)     
+                      {       
+                              if(gBreakPointInfo.PowerMemory.USB_CurPlayTime != sSavePlayTimeBackup)
+                              {
+                                      sSavePlayTimeBackup = gBreakPointInfo.PowerMemory.USB_CurPlayTime;
+                                      BP_SavePlayTime((BYTE*)(&gBreakPointInfo.PowerMemory.USB_CurPlayTime), sizeof(gBreakPointInfo.PowerMemo
+             -ry.USB_CurPlayTime));
+                              }
+                      }
+                      else if(gSys.SystemMode == SYS_MODE_SD)
+                      {
+                              if(gBreakPointInfo.PowerMemory.SD_CurPlayTime != sSavePlayTimeBackup)
+                              {
+                                      sSavePlayTimeBackup = gBreakPointInfo.PowerMemory.SD_CurPlayTime;
+                                      BP_SavePlayTime((BYTE*)(&gBreakPointInfo.PowerMemory.SD_CurPlayTime), sizeof(gBreakPointInfo.PowerMemor
+             -y.SD_CurPlayTime));
+                              }
+                      }
+              }
+              #endif
+ 574          
+ 575          
+ 576          VOID BP_GetPlayAttrib(VOID)
+ 577          {
+ 578   1              //DBG(("*****BP_GetPlayAttrib()*****\n"));
+ 579   1              if(gSys.SystemMode == SYS_MODE_USB)                     //USB
+ 580   1              {
+ 581   2                      gSongInfo.CurPlayTime = gBreakPointInfo.PowerMemory.USB_CurPlayTime;            
+ 582   2              }
+ 583   1              else if(gSys.SystemMode == SYS_MODE_SD)         //SD 
+ 584   1              {               
+ 585   2                      gSongInfo.CurPlayTime = gBreakPointInfo.PowerMemory.SD_CurPlayTime;;    
+ 586   2              }
+ 587   1              gPlayCtrl.Eq = gBreakPointInfo.Eq;
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 11  
+
+ 588   1              gPlayCtrl.RepeatMode = gBreakPointInfo.RepeatMode;
+ 589   1      }
+ 590          
+ 591          
+ 592          VOID BP_SetPlayAttrib(VOID)
+ 593          {
+ 594   1              //DBG(("*****BP_SetPlayAttrib()*****\n"));
+ 595   1              if(gSys.SystemMode == SYS_MODE_USB)                     //USB
+ 596   1              {
+ 597   2                      gBreakPointInfo.PowerMemory.USB_CurPlayTime = gSongInfo.CurPlayTime;
+ 598   2              }
+ 599   1              else if(gSys.SystemMode == SYS_MODE_SD)         //SD 
+ 600   1              {                       
+ 601   2                      gBreakPointInfo.PowerMemory.SD_CurPlayTime = gSongInfo.CurPlayTime;
+ 602   2              }
+ 603   1              gBreakPointInfo.Eq = gPlayCtrl.Eq;
+ 604   1              gBreakPointInfo.RepeatMode = gPlayCtrl.RepeatMode;
+ 605   1      
+ 606   1      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+              //EEPROM寿命有限不保存歌曲即时播放时间
+              //需要调整下校验值以便正常识别sleep模式
+                      gBreakPointInfo.PowerMemory.EepRomCRC8 = CRC8Cal(((BYTE*)&gBreakPointInfo.PowerMemory), sizeof(BP_POWERME
+             -M) - 1);
+              #elif(FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_NVM)
+ 611   1      //NVM保存歌曲即时播放时间
+ 612   1              if(gSys.SystemMode == SYS_MODE_USB)     
+ 613   1              {               
+ 614   2                      BP_SaveInfo((BYTE*)(&gBreakPointInfo.PowerMemory.USB_CurPlayTime), sizeof(gBreakPointInfo.PowerMemory.US
+             -B_CurPlayTime));
+ 615   2              }
+ 616   1              else if(gSys.SystemMode == SYS_MODE_SD)
+ 617   1              {
+ 618   2                      BP_SaveInfo((BYTE*)(&gBreakPointInfo.PowerMemory.SD_CurPlayTime), sizeof(gBreakPointInfo.PowerMemory.SD_
+             -CurPlayTime));
+ 619   2              }
+ 620   1      #endif
+ 621   1      }
+ 622          
+ 623          
+ 624          BYTE BP_GetSystemMode(VOID)
+ 625          {
+ 626   1              return gBreakPointInfo.PowerMemory.SystemMode;
+ 627   1      }
+ 628          
+ 629          
+ 630          BYTE CRC8Cal(BYTE* Ptr, BYTE Len)
+ 631          {
+ 632   1              BYTE Crc = 0;
+ 633   1              BYTE i;
+ 634   1      
+ 635   1              while(Len--)
+ 636   1              {
+ 637   2                      Crc ^= *Ptr++;
+ 638   2                      for(i = 0; i < 8; i++)
+ 639   2                      {
+ 640   3                              if(Crc & 0x01)
+ 641   3                              {
+ 642   4                                      Crc = (Crc >> 1) ^ 0x8C;
+ 643   4                              }
+ 644   3                              else
+ 645   3                              {
+ 646   4                                      Crc >>= 1;
+C51 COMPILER V9.00   BREAKPOINT                                                            05/16/2015 15:55:48 PAGE 12  
+
+ 647   4                              }
+ 648   3                      }
+ 649   2              }
+ 650   1          return Crc;
+ 651   1      }
+ 652          
+ 653          
+ 654          VOID FindLatestSong(VOID)
+ 655          {
+ 656   1              //匹配记录歌曲相关信息，寻找断电记忆歌曲        
+ 657   1              if(gIsFindLastestSong == FALSE)
+ 658   1              {
+ 659   2                      if(gFsInfo.DevID == DEV_ID_USB)
+ 660   2                      {
+ 661   3      #ifdef FUNC_SAVE_PLAYTIME_EN
+                                      if(gBreakPointInfo.PowerMemory.USB_FileAddress == GetSecNum(DirGetSonClusNum()))                        
+              #else           
+ 664   3                              if((gBreakPointInfo.PowerMemory.USB_FileAddress == GetSecNum(DirGetSonClusNum()))                       
+ 665   3                              && (gBreakPointInfo.PowerMemory.USB_FileNameCRC8 == (CRC8Cal(gCurrentEntry->FileName, 11))))
+ 666   3      #endif
+ 667   3                              {
+ 668   4                                      DBG(("!usb find song\n"));
+ 669   4                                      //表示找到所要的歌曲
+ 670   4                                      gIsFindLastestSong = TRUE;
+ 671   4                              }
+ 672   3                      }
+ 673   2                      else if(gFsInfo.DevID == DEV_ID_SD)
+ 674   2                      {
+ 675   3      #ifdef FUNC_SAVE_PLAYTIME_EN
+                                      if(gBreakPointInfo.PowerMemory.SD_FileAddress == GetSecNum(DirGetSonClusNum()))                 
+              #else                           
+ 678   3                              if((gBreakPointInfo.PowerMemory.SD_FileAddress == GetSecNum(DirGetSonClusNum()))
+ 679   3                              && (gBreakPointInfo.PowerMemory.SD_FileNameCRC8 == (CRC8Cal(gCurrentEntry->FileName, 11))))
+ 680   3      #endif                  
+ 681   3                              {
+ 682   4                                      DBG(("!sd find song\n"));
+ 683   4                                      //表示找到所要的歌曲
+ 684   4                                      gIsFindLastestSong = TRUE;
+ 685   4                              }       
+ 686   3                      }
+ 687   2              }       
+ 688   1      }
+ 689          
+ 690          
+ 691          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1264    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      9       9
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

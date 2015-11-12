@@ -1,0 +1,103 @@
+C51 COMPILER V9.00   24CXX                                                                 05/16/2015 15:55:48 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE 24CXX
+OBJECT MODULE PLACED IN .\output\obj\24cxx.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE eeprom\24cxx.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(.\co
+                    -nfig;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\blu
+                    -etooth;.\i2c) DEBUG PRINT(.\output\lst\24cxx.lst) OBJECT(.\output\obj\24cxx.obj)
+
+line level    source
+
+   1          #include<string.h>
+   2          #include <reg51.h>
+   3          #include <intrins.h>
+   4          #include "syscfg.h"
+   5          #include "type.h"
+   6          #include "utility.h"
+   7          #include "debug.h"
+   8          #include "i2c.h"
+   9          #include "24cxx.h"
+  10          
+  11          
+  12          #define EEPROM_PAGE_SIZE        8               //8 bytes/page
+  13          
+  14          
+  15          #ifdef FUNC_BREAK_POINT_EN
+  16          
+  17          #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+              // Read data to buffer from eeprom 
+              BOOL EEPROM_ReadBytes(BYTE Addr, BYTE* Buf, BYTE Len)
+              {
+                      return I2C_ReadNByte(EEPROM_WRITE_ADDR, ((WORD)Addr), ((BYTE*)Buf), (BYTE)Len, EEPROM_IIC);             
+              }
+              
+              
+              // Read one byte from eeprom
+              BYTE EEPROM_ReadByte(BYTE Addr)
+              {
+                      BYTE Temp = 0;
+                      EEPROM_ReadBytes(Addr, &Temp, 1);
+                      return Temp;
+              }
+              
+              
+              // Write data to eeprom from buffer
+              BOOL EEPROM_WriteBytesInOnePage(BYTE Addr, BYTE* Buf, BYTE Len)
+              {
+                      return I2C_WriteNByte(EEPROM_WRITE_ADDR, ((WORD)Addr), ((BYTE*)Buf), ((BYTE)Len), EEPROM_IIC);
+              }
+              
+              
+              // Write data to eeprom from buffer
+              BOOL EEPROM_WriteBytes(BYTE Addr, BYTE* Buf, BYTE Len)
+              {               
+                      while(Len)
+                      {
+                              BYTE n = EEPROM_PAGE_SIZE - (Addr % EEPROM_PAGE_SIZE);
+                              if(n > Len)
+                              {
+                                      n = Len;
+                              }       
+                                              
+                              if(!EEPROM_WriteBytesInOnePage(Addr, Buf, n))
+                              {
+C51 COMPILER V9.00   24CXX                                                                 05/16/2015 15:55:48 PAGE 2   
+
+                                      return FALSE;
+                              }
+              
+                              Addr += n;
+                              Buf     += n;
+                              Len -= n;
+                      }
+                      return TRUE;    
+              }
+              
+              
+              // Write one byte to eeprom
+              BOOL EEPROM_WriteByte(BYTE Addr, BYTE Dat)
+              {
+                      return EEPROM_WriteBytes(Addr, &Dat, 1);
+              }
+              
+              #endif
+  72          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

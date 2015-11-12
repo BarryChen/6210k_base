@@ -1,0 +1,778 @@
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE IR_KEY
+OBJECT MODULE PLACED IN .\output\obj\ir_key.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE key\ir_key.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(.\conf
+                    -ig;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\bluet
+                    -ooth;.\i2c) DEBUG PRINT(.\output\lst\ir_key.lst) OBJECT(.\output\obj\ir_key.obj)
+
+line level    source
+
+   1          #include <reg51.h>
+   2          
+   3          #include "type.h"
+   4          #include "syscfg.h"
+   5          #include "utility.h"
+   6          #include "debug.h"
+   7          #include "sysctrl.h"
+   8          #include "key.h"
+   9          #include "timer.h"
+  10          #include "ir_key.h"
+  11          #include "ir.h"
+  12          #include "message.h"
+  13          #include "spi_fs.h"
+  14          #include "user_interface.h"
+  15          
+  16          
+  17          #ifdef FUNC_IR_KEY_EN
+  18          
+  19          #define IR_KEY_C_DEBUG
+  20          
+  21          #define         IR_KEY_SCAN_TIME                        5
+  22          #define         IR_KEY_JTTER_TIME                       30
+  23          #define         IR_KEY_CP_TIME                          500     //1000  //CP condition is 1s
+  24          #define         IR_KEY_CPH_TIME                         300     //300
+  25          
+  26          #define         IR_KEY_SUM                                      28              //IR KEY SUM
+  27          
+  28          #define         IR_KEY_PWRDOWN_INDEX            0               //power-down key index
+  29          #define         IR_KEY_PWRDOWN_CP_TIME          3000    //cp-time for power-down key
+  30          
+  31          
+  32          typedef enum _IR_KEY_STATE
+  33          {
+  34                  IR_KEY_STATE_IDLE,
+  35                  IR_KEY_STATE_JITTER,
+  36                  IR_KEY_STATE_PRESS_DOWN,
+  37                  IR_KEY_STATE_CP
+  38          } IR_KEY_STATE;
+  39          
+  40          static TIMER                    IrKeyHoldTimer;
+  41          static TIMER                    IrKeyWaitTimer;
+  42          static TIMER                    IrKeyLockTimer;
+  43          
+  44          static TIMER                    IrKeyScanTimer;
+  45          static IR_KEY_STATE     IrKeyState;
+  46          
+  47          static DWORD            IrKeyVal;
+  48          static BYTE                     IrClkDivRate;
+  49          
+  50          extern BOOL GetIrIsOn(void);
+  51          extern BOOL GetSpiPlay();
+  52          #if 0
+              static CODE BYTE gIrVal[IR_KEY_SUM] =                                   //TOP
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 2   
+
+              {
+                      0xED,                                           // POWER
+                      0xE3,                                           // Mode
+                      0xFA,                                           // VOL+
+                      0xE1,                                           //Mute
+              
+                      0xFE,                                           // SD
+                      0xF8,                                           // PREV
+                      0xF7,                                           // PLAY/PAUSE
+                      0xF6,                                           // NEXT
+              
+                      0xFD,                                           // USB
+                      0xF5,                                           // TREB+
+                      0xE4,                                           // VOL-
+                      0xE0,                                           // BASS+
+              
+                      0xEC,                                           // AUX
+                      0xF3,                                           // TREB-
+                      0xF2,                                           // DEFAULT
+                      0xF1,                                           // BASS-
+              
+                      0xFB,                                           // 100+
+                      0xF9,                                           // 200+
+                      0xEF,                                           // 1
+                      0xBB,                                           // 2
+                      
+                      0xBF,                                           // 3
+                      0xEB,                                           // 4
+                      0xB9,                                           // 5
+                      0xE9,                                           // 6            
+              
+                      0xAB,                                           // 7
+                      0xA9,                                           // 8
+                      0xAF,                                           // 9
+                     0xFF,                                            // 0
+              };
+              
+              #else
+  92          static CODE USHORT gIrVal1[IR_KEY_SUM] =                                        //TOP
+  93          {
+  94                  0x5AA5,
+  95                  0x5FA0, 
+  96                  0x5EA1,
+  97                  0x5DA2,
+  98                  0x5CA3,
+  99                  0x59A6,
+ 100                  0x5BA4,
+ 101          };
+ 102          
+ 103          static CODE BYTE gIrVal2[IR_KEY_SUM] =                          //sunplus
+ 104          {
+ 105                  0xEA,                                           // VOL-
+ 106                  0xF6,                                           // VOL+
+ 107                  0xE9,                                           // 0                            
+ 108          
+ 109                  0xF3,                                           // 1
+ 110                  0xE7,                                           // 2
+ 111                  0xA1,                                           // 3
+ 112          
+ 113                  0xF7,                                           // 4
+ 114                  0xE3,                                           // 5
+ 115                  0xA5,                                           // 6
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 3   
+
+ 116          
+ 117                  0xBD,                                           // 7
+ 118                  0xAD,                                           // 8
+ 119                  0xB5,                                           // 9
+ 120          
+ 121                  0xBA,                                           // POWER
+ 122                  0xB9,                                           // Mode
+ 123                  0xBB,                                           // PLAY/PAUSE //CH+
+ 124          
+ 125                  0xE6,                                           // RPT
+ 126                  0xB8,                                           //Mute
+ 127                  0xF2,                                           //AUTO scan
+ 128          
+ 129                  0xF8,                                           // EQ
+ 130                  0xBF,                                           // PREV
+ 131                  0xBC,                                           // NEXT
+ 132          };
+ 133          
+ 134          static CODE BYTE gIrVal3[IR_KEY_SUM] =                          // JIAN rong
+ 135          {
+ 136                  0xE9,                                           // VOL-
+ 137                  0xED,                                           // VOL+
+ 138                  0xEF,                                           // 0                            
+ 139          
+ 140                  0xFB,                                           // 1
+ 141                  0xFA,                                           // 2
+ 142                  0xF9,                                           // 3
+ 143          
+ 144                  0xF7,                                           // 4
+ 145                  0xF6,                                           // 5
+ 146                  0xF5,                                           // 6
+ 147          
+ 148                  0xF3,                                           // 7
+ 149                  0xF2,                                           // 8
+ 150                  0xF1,                                           // 9
+ 151          
+ 152                  0xFF,                                           // POWER
+ 153                  0xFD,                                           // Mode
+ 154                  0xFE,                                           // PLAY/PAUSE //AUTO SCAN
+ 155          
+ 156                  0xEE,                                           // 10+
+ 157                  0xE7,                                           //FB //FAST REWIND
+ 158                  0xE6,                                           //FF //FAST FORWARD
+ 159          
+ 160                  0xE5,                                           // EQ
+ 161                  0xEB,                                           // PREV //CH-//SCAN DW
+ 162                  0xEA,                                           // NEXT//CH+//SCAN UP
+ 163          };
+ 164          
+ 165          //A
+ 166          static CODE BYTE gIrVal4[IR_KEY_SUM + 5] = 
+ 167          {
+ 168                  0xFA,                                           // VOL-
+ 169                  0xF9,                                           // VOL+
+ 170                  0xF7,                                           // 0                            
+ 171          
+ 172                  0xF3,                                           // 1
+ 173                  0xF2,                                           // 2
+ 174                  0xF1,                                           // 3
+ 175          
+ 176                  0xEF,                                           // 4
+ 177                  0xEE,                                           // 5
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 4   
+
+ 178                  0xED,                                           // 6
+ 179          
+ 180                  0xEB,                                           // 7
+ 181                  0xEA,                                           // 8
+ 182                  0xE9,                                           // 9
+ 183          
+ 184                  0xE1,                                           // STOP
+ 185                  0xE5,                                           // Mode
+ 186                  0xFF,                                           // PLAY/PAUSE //CH+
+ 187          
+ 188                  0xE7,                                           // PICK SONG
+ 189                  0xFE,                                           //10- //FREQ -
+ 190                  0xFD,                                           //10+//FREQ +
+ 191          
+ 192                  0xFB,                                           // EQ
+ 193                  0xF6,                                           // PREV
+ 194                  0xF5,                                           // NEXT
+ 195          
+ 196                  0x01,                                           // USB
+ 197                  0x02,                                           // SD
+ 198                  0x03,                                           // FM
+ 199                  0x04,                                           // LINE IN
+ 200                  0xE1,                                           // STOP 
+ 201          };
+ 202          #endif
+ 203          
+ 204          static CODE BYTE IrKeyEvent[][4] =       
+ 205          {
+ 206          #if 0
+              //      SP                                      CPS                                     CPH                                     CPR     
+                      {MSG_POWER,             MSG_POWER,              MSG_NONE,               MSG_NONE                },      // POWER
+                      {MSG_MODE_SW,           MSG_NONE,               MSG_NONE,               MSG_NONE                },      // Mode
+                      {MSG_VOL_ADD,           MSG_VOL_ADD,            MSG_VOL_ADD,            MSG_NONE                },      // VOL+
+                      {MSG_MUTE,              MSG_NONE,               MSG_NONE,               MSG_NONE                },      // Mute
+              
+                      {MSG_MODE_SD,           MSG_NONE,               MSG_NONE,               MSG_NONE                },      // SD
+                      {MSG_PRE,                       MSG_FB_START,           MSG_NONE,                       MSG_FF_FB_END   },      // PREV
+                      {MSG_PLAY_PAUSE,                MSG_NONE,               MSG_NONE,               MSG_NONE                },      // PLAY/PAUSE
+                      {MSG_NEXT,                      MSG_FF_START,           MSG_NONE,                       MSG_FF_FB_END   },      // NEXT
+              
+                      {MSG_MODE_USB,          MSG_NONE,               MSG_NONE,               MSG_NONE                },      // USB
+                      {MSG_TREBUP,            MSG_TREBUP,             MSG_TREBUP,             MSG_NONE                },      // TREB+
+                      {MSG_VOL_SUB,           MSG_VOL_SUB,            MSG_VOL_SUB,            MSG_NONE                },      // VOL-
+                      {MSG_BASSUP,            MSG_BASSUP,             MSG_BASSUP,             MSG_NONE                },      // BASS+
+              
+                      {MSG_MODE_AUX,          MSG_NONE,               MSG_NONE,               MSG_NONE                },      // AUX
+                      {MSG_TREBDN,            MSG_TREBDN,             MSG_TREBDN,             MSG_NONE                },      // TREB-
+                      {MSG_DEFAULT,           MSG_NONE,               MSG_NONE,               MSG_NONE                },      // DEFAULT
+                      {MSG_BASSDN,            MSG_BASSDN,             MSG_BASSDN,             MSG_NONE                },      // BASS-
+              
+                      {MSG_100TRACK_ADD,              MSG_NONE,               MSG_NONE,               MSG_NONE                },      // 100+
+                      {MSG_200TRACK_ADD,              MSG_NONE,               MSG_NONE,               MSG_NONE                },      // 200+
+                      {MSG_NUM_1,             MSG_NUM_1CP,            MSG_NONE,                       MSG_NONE                },      // 1
+                      {MSG_NUM_2,             MSG_NUM_2CP,            MSG_NONE,                       MSG_NONE                },      // 2
+              
+                      {MSG_NUM_3,             MSG_NUM_3CP,            MSG_NONE,                       MSG_NONE                },      // 3
+                      {MSG_NUM_4,             MSG_NUM_4CP,            MSG_NONE,                       MSG_NONE                },      // 4
+                      {MSG_NUM_5,             MSG_NUM_5CP,            MSG_NONE,                       MSG_NONE                },      // 5
+                      {MSG_NUM_6,             MSG_NUM_6CP,            MSG_NONE,                       MSG_NONE                },      // 6
+              
+                      {MSG_NUM_7,             MSG_NUM_7CP,            MSG_NONE,                       MSG_NONE                },      // 7
+                      {MSG_NUM_8,             MSG_NUM_8CP,            MSG_NONE,                       MSG_NONE                },      // 8
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 5   
+
+                      {MSG_NUM_9,             MSG_NUM_9CP,            MSG_NONE,                       MSG_NONE                },      // 9
+                      {MSG_NUM_0,             MSG_NUM_0CP,            MSG_NONE,                       MSG_NONE                },      // 0
+              #elif defined(AU6210K_ZB_BT007_CSR) && !defined(AU6210K_ZB_BT007_IR_IC_IS_334M_CSR)
+                      {MSG_NEXT,                      MSG_VOL_ADD,                    MSG_VOL_ADD,                            MSG_NONE        },      //SW3
+                      {MSG_PRE,                       MSG_VOL_SUB,                    MSG_VOL_SUB,                            MSG_NONE        },      //SW2   
+                      {MSG_PLAY_PAUSE,        MSG_NONE,                               MSG_NONE,                                       MSG_NONE        },      //SW4
+                      {MSG_MODE_SW,           MSG_NONE,                               MSG_NONE,                                       MSG_NONE        },      //SW3
+                      {MSG_BLUETOOTH_ANSWER,  MSG_BLUETOOTH_REJECT,   MSG_BLUETOOTH_REJECT,           MSG_NONE        },      //SW4
+              #elif defined(AU6210K_ZB_BT007_CSR) && defined(AU6210K_ZB_BT007_IR_IC_IS_334M_CSR)
+ 249                  {MSG_PLAY_PAUSE,                MSG_NONE,                       MSG_NONE,                                       MSG_NONE        },      //SW4
+ 250                  {MSG_MODE_SW,                   MSG_IR_ON_OFF,          MSG_NONE,                                       MSG_NONE        },      //SW3
+ 251                  {MSG_BLUETOOTH_ANSWER,  MSG_BT_REJECT,          MSG_BLUETOOTH_REJECT,           MSG_NONE        },      //SW4
+ 252                  {MSG_PRE,                               MSG_NONE,                       MSG_NONE,                                       MSG_NONE},      //SW2   
+ 253                  {MSG_NEXT,                              MSG_NONE,                       MSG_NONE,                                       MSG_NONE},      //SW3
+ 254                  {MSG_V_ADD,                             MSG_V_ADD,                      MSG_VOL_ADD,                                    MSG_NONE},      //SW2   
+ 255                  {MSG_V_SUB,                             MSG_V_SUB,                      MSG_VOL_SUB,                                    MSG_NONE},      //SW3
+ 256          
+ 257          #elif defined(AU6210K_HXX_B002)
+                      {MSG_NEXT,                      MSG_NONE,               MSG_NONE,               MSG_NONE                },      // vol-         idx-0
+                      {MSG_PLAY_PAUSE,        MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // vol+         idx-1
+                      {MSG_VOL_SUB,           MSG_VOL_SUB,            MSG_VOL_SUB,                    MSG_NONE                },      // 0            idx-2
+              
+                      {MSG_NUM_1,             MSG_NUM_1CP,            MSG_NONE,                       MSG_NONE                },      // 1            idx-3
+                      {MSG_NUM_2,             MSG_NUM_2CP,            MSG_NONE,                       MSG_NONE                },      // 2            idx-4
+                      {MSG_NUM_3,             MSG_NUM_3CP,            MSG_NONE,                       MSG_NONE                },      // NEXT         idx-5
+              
+                      {MSG_NUM_4,             MSG_NUM_4CP,            MSG_NONE,                       MSG_NONE                },      // EQ           idx-6
+                      {MSG_NUM_5,             MSG_NUM_5CP,            MSG_NONE,                       MSG_NONE                },      // VOL-         idx-7
+                      {MSG_NUM_6,             MSG_NUM_6CP,            MSG_NONE,                       MSG_NONE                },      // VOL+         idx-8
+              
+                      {MSG_NUM_7,             MSG_NUM_7CP,            MSG_NONE,                       MSG_NONE                },      // 0            idx-9
+                      {MSG_NUM_8,             MSG_NUM_8CP,            MSG_NONE,                       MSG_NONE                },      // REPEAT       idx-10
+                      {MSG_NUM_9,             MSG_NUM_9CP,            MSG_NONE,                       MSG_NONE                },      // USB/SD       idx-11
+                      
+                      {MSG_POWER,             MSG_POWER,                      MSG_NONE,                       MSG_NONE                },      // 1            idx-12
+                      {MSG_REPEAT,            MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // 2            idx-13
+                      {MSG_FREQ_DN,           MSG_FREQ_DN,            MSG_FREQ_DN,                    MSG_NONE                },      // 3            idx-14
+              
+                      {MSG_VOL_ADD,           MSG_VOL_ADD,            MSG_VOL_ADD,                    MSG_NONE                },      // 4            idx-15
+                      {MSG_MODE_SW,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // 5            idx-16
+                      {MSG_NUM_0,             MSG_NUM_0CP,                    MSG_NONE,                       MSG_NONE                },      // 6            idx-17
+              
+                      {MSG_PRE,                       MSG_NONE,               MSG_NONE,                       MSG_NONE                },      // 7            idx-18
+                      {MSG_FREQ_UP,           MSG_FREQ_UP,            MSG_FREQ_UP,                    MSG_NONE        },      //SW13          idx-19
+                      {MSG_EQ_SW,             MSG_NONE,                       MSG_NONE,                       MSG_NONE        },      //SW12          idx-20
+                      
+              #else
+              //      SP                                      CPS                                     CPH                                     CPR     
+              // C & D
+                      {MSG_VOL_SUB,           MSG_VOL_SUB,            MSG_VOL_SUB,            MSG_NONE                },      // vol-
+                      {MSG_VOL_ADD,           MSG_VOL_ADD,            MSG_VOL_ADD,            MSG_NONE                },      // vol+
+                      {MSG_NUM_0,             MSG_NUM_0CP,            MSG_NONE,                       MSG_NONE                },      // 0
+              
+                      {MSG_NUM_1,             MSG_NUM_1CP,            MSG_NONE,                       MSG_NONE                },      // 1
+                      {MSG_NUM_2,             MSG_NUM_2CP,            MSG_NONE,                       MSG_NONE                },      // 2
+                      {MSG_NUM_3,             MSG_NUM_3CP,            MSG_NONE,                       MSG_NONE                },      // NEXT
+              
+                      {MSG_NUM_4,             MSG_NUM_4CP,            MSG_NONE,                       MSG_NONE                },      // EQ
+                      {MSG_NUM_5,             MSG_NUM_5CP,            MSG_NONE,                       MSG_NONE                },      // VOL-
+                      {MSG_NUM_6,             MSG_NUM_6CP,            MSG_NONE,                       MSG_NONE                },      // VOL+
+              
+                      {MSG_NUM_7,             MSG_NUM_7CP,            MSG_NONE,                       MSG_NONE                },      // 0
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 6   
+
+                      {MSG_NUM_8,             MSG_NUM_8CP,            MSG_NONE,                       MSG_NONE                },      // REPEAT
+                      {MSG_NUM_9,             MSG_NUM_9CP,            MSG_NONE,                       MSG_NONE                },      // USB/SD
+                      
+                      {MSG_POWER,             MSG_POWER,                      MSG_NONE,                       MSG_NONE                },      // 1
+                      {MSG_MODE_SW,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // 2
+                      {MSG_PLAY_1,            MSG_PP_STOP,            MSG_NONE,                       MSG_NONE                },      // 3
+              
+                      {MSG_REPEAT,            MSG_REPEAT,             MSG_NONE,                       MSG_NONE                },      // 4
+                      {MSG_MUTE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // 5
+                      {MSG_INTRO,             MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // 6
+              
+                      {MSG_EQ_CH_SUB,         MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // 7
+                      {MSG_PREV1,                     MSG_FB_START,           MSG_NONE,                       MSG_FF_FB_END   },      //SW13
+                      {MSG_NEXT1,             MSG_FF_START,           MSG_NONE,                       MSG_FF_FB_END   },      //SW12
+              
+              //jian rong     --> B
+                      {MSG_POWER,             MSG_POWER,                      MSG_NONE,                       MSG_NONE                },      // 
+                      {MSG_MODE_SW,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // 
+                      {MSG_PLAY_PAUSE,        MSG_PP_STOP,            MSG_NONE,                       MSG_NONE                },      //
+              
+                      {MSG_NUM_10ADD,         MSG_NUM_10ADDCP,        MSG_NONE,                       MSG_NONE                },      // 10+
+                      {MSG_FREQ_DN,           MSG_FB_START,           MSG_NONE,                       MSG_FF_FB_END   },      // 
+                      {MSG_FREQ_UP,           MSG_FF_START,           MSG_NONE,                       MSG_FF_FB_END   },      // 
+              
+                      {MSG_EQ_SW,             MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //
+                      {MSG_PRE,                       MSG_10TRACK_SUB,        MSG_10TRACK_SUBCP,      MSG_NONE                },      //
+                      {MSG_NEXT,                      MSG_10TRACK_ADD,        MSG_10TRACK_ADDCP,      MSG_NONE                },      //      
+              
+              // mv remote --> A
+                      {MSG_STOP,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // 
+                      {MSG_MODE_SW,           MSG_POWER,                      MSG_NONE,                       MSG_NONE                },      //SW9
+                      {MSG_PLAY_PAUSE,        MSG_PP_STOP,            MSG_NONE,                       MSG_NONE                },      // 
+              
+                      {MSG_IR_SELECT,         MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // pick song
+                      {MSG_FREQDN_10TRK,      MSG_10TRACK_SUB,        MSG_NONE,                       MSG_NONE                },      // 
+                      {MSG_FREQUP_10TRK,      MSG_10TRACK_ADD,        MSG_NONE,                       MSG_NONE                },      // 
+              
+                      {MSG_EQ_SW,             MSG_REPEAT,             MSG_REPEAT,             MSG_NONE                },      // 
+                      {MSG_PRE,                       MSG_FB_START,           MSG_NONE,                       MSG_FF_FB_END   },      //
+                      {MSG_NEXT,                      MSG_FF_START,           MSG_NONE,                       MSG_FF_FB_END   },      //      
+              
+              //for ir slave  five cmds
+                      {MSG_MODE_USB,          MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // usb
+                      {MSG_MODE_SD,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // sd
+                      {MSG_MODE_FM,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // FM 
+              
+                      {MSG_MODE_AUX,          MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // line in
+                      {MSG_STOP,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      // STOP 
+              #endif
+ 351          };
+ 352          
+ 353          extern WORD KeyInLedFlashHoldTmr;
+ 354          //get ir key index
+ 355          BYTE GetIrKeyIndex(VOID)
+ 356          {
+ 357   1              static BYTE KeyIndex = -1;
+ 358   1              static BYTE IrCphCnt = 0;
+ 359   1              BOOL IsIrShortPrs; 
+ 360   1              BOOL IsIrContinuePrs;
+ 361   1      
+ 362   1              if(IrIsKeyCome())
+ 363   1              {
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 7   
+
+ 364   2                      KeyInLedFlashHoldTmr = 500;
+ 365   2                      IsIrShortPrs = TRUE;
+ 366   2                      IsIrContinuePrs = FALSE;
+ 367   2                      IrKeyVal = IrGetKeyCode();  
+ 368   2      #ifdef IR_KEY_C_DEBUG                   
+ 369   2      #endif
+ 370   2              DBG1(("Key: %08LX\n", IrKeyVal)); 
+ 371   2      
+ 372   2              }
+ 373   1              else if(IrIsContinuePrs())
+ 374   1              {
+ 375   2      #ifdef IR_KEY_C_DEBUG                   
+ 376   2      #endif  
+ 377   2                                DBG1(("IrIsContinuePrs\n")); 
+ 378   2                    KeyInLedFlashHoldTmr = 500;
+ 379   2                      IsIrShortPrs = FALSE;
+ 380   2                      IsIrContinuePrs = TRUE;
+ 381   2              } 
+ 382   1              else
+ 383   1              {
+ 384   2                      IsIrShortPrs = FALSE;
+ 385   2                      IsIrContinuePrs = FALSE;
+ 386   2              }
+ 387   1              if(IsIrShortPrs || IsIrContinuePrs)
+ 388   1              {
+ 389   2                      //fast response 
+ 390   2                      if(IsIrShortPrs)
+ 391   2                      {
+ 392   3                              IrCphCnt = 0;
+ 393   3                      }
+ 394   2                      if(IrCphCnt < 5)
+ 395   2                      {
+ 396   3                              IrCphCnt++;
+ 397   3                      }
+ 398   2                      TimeOutSet(&IrKeyHoldTimer, 70 * IrCphCnt);
+ 399   2      
+ 400   2                      if(((BYTE*)(&IrKeyVal))[0] + ((BYTE*)(&IrKeyVal))[1] != 0xFF)
+ 401   2                      {
+ 402   3                              KeyIndex = -1;
+ 403   3                              return -1;
+ 404   3                      }
+ 405   2      #if 0
+                              if((((BYTE*)(&IrKeyVal))[2] == 0xFF) 
+                                   && (((BYTE*)(&IrKeyVal))[3] == 0x00))
+                              {
+                                      for(KeyIndex = 0; KeyIndex < IR_KEY_SUM; KeyIndex++)
+                                      {
+                                              if(((BYTE*)(&IrKeyVal))[0] == gIrVal[KeyIndex])         
+                                              {
+                                                      return KeyIndex;
+                                              }
+                                      }
+                              }
+                              if((((BYTE*)(&IrKeyVal))[2] == 0x7F) 
+                                      && (((BYTE*)(&IrKeyVal))[3] == 0x80))
+                              {
+                                      for(KeyIndex = 0; KeyIndex < IR_KEY_SUM; KeyIndex++)
+                                      {
+                                              if(((BYTE*)(&IrKeyVal))[0] == gIrVal1[KeyIndex])                
+                                              {
+                                                      return KeyIndex;
+                                              }
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 8   
+
+                                      }
+                              }
+              #else
+ 429   2                      if((((BYTE*)(&IrKeyVal))[2] == 0x7F) 
+ 430   2                              && (((BYTE*)(&IrKeyVal))[3] == 0x80))
+ 431   2                      {
+ 432   3                              for(KeyIndex = 0; KeyIndex < IR_KEY_SUM; KeyIndex++)
+ 433   3                              {
+ 434   4                                      if(((USHORT*)(&IrKeyVal))[0] == gIrVal1[KeyIndex])              
+ 435   4                                      {
+ 436   5      #ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+ 437   5                                              if(gSys.SystemMode == SYS_MODE_BLUETOOTH && GetIrIsOn())
+ 438   5                                              {
+ 439   6                                                      switch(KeyIndex)
+ 440   6                                                      {
+ 441   7                                                      case 0:                                         
+ 442   7                                                              baGPIOCtrl[GPIO_D_OUT] |= 0x40; //D6
+ 443   7                                                              break;
+ 444   7                                                      case 2:
+ 445   7                                                              baGPIOCtrl[GPIO_D_OUT] |= 0x20; //D5
+ 446   7                                                              break;
+ 447   7                                                      case 3:
+ 448   7                                                              baGPIOCtrl[GPIO_A_OUT] |= 0x02; //A1
+ 449   7                                                              break;
+ 450   7                                                      case 4:
+ 451   7                                                              baGPIOCtrl[GPIO_A_OUT] |= 0x04; //A2
+ 452   7                                                              break;
+ 453   7                                                      default:
+ 454   7                                                              break;
+ 455   7                                                      }
+ 456   6                                              }
+ 457   5      
+ 458   5      #endif
+ 459   5                                              baGPIOCtrl[GPIO_A_OUT] |= 0x40; //A2
+ 460   5                                      
+ 461   5                                              return KeyIndex;
+ 462   5                                      }
+ 463   4      
+ 464   4                                      
+ 465   4                              }
+ 466   3                      }
+ 467   2      
+ 468   2                      else if((((BYTE*)(&IrKeyVal))[2] == 0xFF) 
+ 469   2                           && (((BYTE*)(&IrKeyVal))[3] == 0x00))
+ 470   2                      {
+ 471   3                              for(KeyIndex = 0; KeyIndex < IR_KEY_SUM; KeyIndex++)
+ 472   3                              {
+ 473   4                                      if(((BYTE*)(&IrKeyVal))[0] == gIrVal2[KeyIndex])                
+ 474   4                                      {
+ 475   5                                              return KeyIndex;
+ 476   5                                      }
+ 477   4                              }
+ 478   3                      }
+ 479   2                      else if((((BYTE*)(&IrKeyVal))[2] == 0xBF)
+ 480   2                           && (((BYTE*)(&IrKeyVal))[3] == 0x00))
+ 481   2                      {
+ 482   3                              for(KeyIndex = 0; KeyIndex < 12; KeyIndex++)
+ 483   3                              {
+ 484   4                                      if(((BYTE*)(&IrKeyVal))[0] == gIrVal3[KeyIndex])                
+ 485   4                                      {
+ 486   5                                              return KeyIndex;
+ 487   5                                      }
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 9   
+
+ 488   4                              }
+ 489   3                              for(KeyIndex = 12; KeyIndex < IR_KEY_SUM; KeyIndex++)
+ 490   3                              {
+ 491   4                                      if(((BYTE*)(&IrKeyVal))[0] == gIrVal3[KeyIndex])                
+ 492   4                                      {
+ 493   5                                              KeyIndex += 9;
+ 494   5                                              return (KeyIndex);
+ 495   5                                      }
+ 496   4                              }
+ 497   3                      }
+ 498   2                      else if((((BYTE*)(&IrKeyVal))[2] == 0xFD)
+ 499   2                           && (((BYTE*)(&IrKeyVal))[3] == 0x02))
+ 500   2                      {
+ 501   3                              for(KeyIndex = 0; KeyIndex < 12; KeyIndex++)
+ 502   3                              {
+ 503   4                                      if(((BYTE*)(&IrKeyVal))[0] == gIrVal4[KeyIndex])                
+ 504   4                                      {
+ 505   5                                              return KeyIndex;
+ 506   5                                      }
+ 507   4                              }
+ 508   3                              for(KeyIndex = 12; KeyIndex < (IR_KEY_SUM + 5); KeyIndex++)
+ 509   3                              {
+ 510   4                                      if(((BYTE*)(&IrKeyVal))[0] == gIrVal4[KeyIndex])                
+ 511   4                                      {
+ 512   5                                              KeyIndex += 18;
+ 513   5                                              return (KeyIndex);
+ 514   5                                      }
+ 515   4                              }
+ 516   3                      }
+ 517   2      #endif
+ 518   2                      KeyIndex = -1;
+ 519   2                      return -1;
+ 520   2              }
+ 521   1              else if(!IsTimeOut(&IrKeyHoldTimer))
+ 522   1              {
+ 523   2                      return KeyIndex;
+ 524   2              }
+ 525   1              else
+ 526   1              {
+ 527   2                      IrKeyVal = 0;
+ 528   2                      return -1;
+ 529   2              }
+ 530   1      }
+ 531          
+ 532          
+ 533          // IR decoder initilize.
+ 534          VOID IrKeyScanInit(VOID)
+ 535          {       
+ 536   1              IrKeyState = IR_KEY_STATE_IDLE;
+ 537   1              TimeOutSet(&IrKeyScanTimer, 0);
+ 538   1              TimeOutSet(&IrKeyLockTimer, 0);
+ 539   1              
+ 540   1      //#if (POWER_SAVING_MODE_OPTION == POWER_SAVING_MODE_SLEEP)
+ 541   1      //#if (WIS_GPIO_IR == WIS_GPB6_LOW)
+ 542   1      //      IRChannelSel(IR_INPUT_GPIOB6);
+ 543   1      //#elif (WIS_GPIO_IR == WIS_GPE0_LOW)
+ 544   1      //      IRChannelSel(IR_INPUT_GPIOE0);  
+ 545   1      //#endif
+ 546   1      //#else
+ 547   1              //未定义sleep模式下IR唤醒，则客户自己配置IR端口
+ 548   1              IRChannelSel(IR_KEY_PORT);
+ 549   1      
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 10  
+
+ 550   1              IrIgnoreLeadHeader(FALSE);
+ 551   1              IrInit();
+ 552   1      
+ 553   1              baGPIOCtrl[GPIO_D_IE] &= ~0x20;//D5
+ 554   1              baGPIOCtrl[GPIO_D_OE] |= 0x20;
+ 555   1              baGPIOCtrl[GPIO_D_PU] |= 0x20;
+ 556   1              baGPIOCtrl[GPIO_D_PD] |= 0x20; 
+ 557   1              baGPIOCtrl[GPIO_D_OUT] &= ~0x10; 
+ 558   1              WaitMs(2);
+ 559   1              baGPIOCtrl[GPIO_D_IE] &= ~0x40;//D6
+ 560   1              baGPIOCtrl[GPIO_D_OE] |= 0x40;
+ 561   1              baGPIOCtrl[GPIO_D_PU] |= 0x40;
+ 562   1              baGPIOCtrl[GPIO_D_PD] |= 0x40; 
+ 563   1              baGPIOCtrl[GPIO_D_OUT] &= ~0x40; 
+ 564   1              WaitMs(2);
+ 565   1              baGPIOCtrl[GPIO_A_IE] &= ~0x04;//A2
+ 566   1              baGPIOCtrl[GPIO_A_OE] |= 0x04;
+ 567   1              baGPIOCtrl[GPIO_A_PU] |= 0x04;
+ 568   1              baGPIOCtrl[GPIO_A_PD] |= 0x04; 
+ 569   1              baGPIOCtrl[GPIO_A_OUT] &= ~0x04; 
+ 570   1              WaitMs(2);
+ 571   1              baGPIOCtrl[GPIO_A_IE] &= ~0x02;//A2
+ 572   1              baGPIOCtrl[GPIO_A_OE] |= 0x02;
+ 573   1              baGPIOCtrl[GPIO_A_PU] |= 0x02;
+ 574   1              baGPIOCtrl[GPIO_A_PD] |= 0x02; 
+ 575   1              baGPIOCtrl[GPIO_A_OUT] &= ~0x02; 
+ 576   1              WaitMs(2);
+ 577   1              
+ 578   1      }
+ 579          
+ 580          
+ 581          // Key process, image key value to key event.
+ 582          MESSAGE IrKeyEventGet(VOID)                                                     
+ 583          {
+ 584   1              static  BYTE    PreKeyIndex = -1;
+ 585   1              BYTE                    KeyIndex;
+ 586   1      
+ 587   1              if(!IsTimeOut(&IrKeyScanTimer))
+ 588   1              {
+ 589   2                      return MSG_NONE;
+ 590   2              }
+ 591   1              TimeOutSet(&IrKeyScanTimer, IR_KEY_SCAN_TIME);  
+ 592   1              //DBG1(("GetSpiPlay() = %d\n",GetSpiPlay()));
+ 593   1      //      if(GetSpiPlay())
+ 594   1              //{
+ 595   1              //      KeyIndex == -1;
+ 596   1              //}else
+ 597   1              {
+ 598   2                      KeyIndex = GetIrKeyIndex();
+ 599   2              //DBG(("*PreKeyIndex:%bx, KeyIndex:%bx\n", PreKeyIndex, KeyIndex));
+ 600   2              }
+ 601   1      
+ 602   1              switch(IrKeyState)
+ 603   1              {
+ 604   2                      case IR_KEY_STATE_IDLE:
+ 605   2                              if(KeyIndex == -1)
+ 606   2                              {
+ 607   3                                      baGPIOCtrl[GPIO_D_OUT] &= ~0x20;        
+ 608   3                                      baGPIOCtrl[GPIO_D_OUT] &= ~0x40;        
+ 609   3                                      baGPIOCtrl[GPIO_A_OUT] &= ~0x04;        
+ 610   3                                      baGPIOCtrl[GPIO_A_OUT] &= ~0x02;
+ 611   3                                      if(IsTimeOut(&IrKeyLockTimer))
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 11  
+
+ 612   3                                      {
+ 613   4                                              //DBG1(("timer out!!\n"));
+ 614   4                                              baGPIOCtrl[GPIO_A_OUT] &= ~0x40; //A2
+ 615   4                                      }
+ 616   3      
+ 617   3                                      
+ 618   3                                      return MSG_NONE;
+ 619   3                              }
+ 620   2      
+ 621   2                              PreKeyIndex = KeyIndex;
+ 622   2                              if((PreKeyIndex == 12) || (PreKeyIndex == 21))
+ 623   2                              {        
+ 624   3                                      TimeOutSet(&IrKeyWaitTimer, IR_KEY_PWRDOWN_CP_TIME);    
+ 625   3                              }
+ 626   2                              else
+ 627   2                              {
+ 628   3                                      TimeOutSet(&IrKeyWaitTimer, IR_KEY_CP_TIME);
+ 629   3                              }
+ 630   2                              IrKeyState = IR_KEY_STATE_PRESS_DOWN;
+ 631   2                              break;
+ 632   2      
+ 633   2                      case IR_KEY_STATE_PRESS_DOWN:
+ 634   2                              if(!GetIrIsOn())
+ 635   2                              {
+ 636   3                                                                              //DBG1(("keep timer out!!\n"));
+ 637   3                                      TimeOutSet(&IrKeyLockTimer, 2000);      
+ 638   3                              }
+ 639   2                              else
+ 640   2                              {
+ 641   3                                      DBG1(("keep timer 222!!\n"));
+ 642   3                                      TimeOutSet(&IrKeyLockTimer, 0);  //A2
+ 643   3                              }
+ 644   2                              if(PreKeyIndex != KeyIndex)
+ 645   2                              {
+ 646   3      #ifdef IR_KEY_C_DEBUG                           
+ 647   3                                      DBG1(("IR SP: %02BX\n", IrKeyEvent[PreKeyIndex][0]));
+ 648   3      #endif                          
+ 649   3                                      IrKeyState = IR_KEY_STATE_IDLE;
+ 650   3      
+ 651   3                                      if(PreKeyIndex != 1)
+ 652   3                                      switch(PreKeyIndex)
+ 653   3                                      {
+ 654   4                                      case 0:                                         
+ 655   4                                              baGPIOCtrl[GPIO_D_OUT] &= ~0x40; //D6
+ 656   4                                              break;
+ 657   4                                      case 2:
+ 658   4                                              baGPIOCtrl[GPIO_D_OUT] &= ~0x20; //D5
+ 659   4                                              break;
+ 660   4                                      case 3:
+ 661   4                                              baGPIOCtrl[GPIO_A_OUT] &= ~0x02; //A1
+ 662   4                                              break;
+ 663   4                                      case 4:
+ 664   4                                              baGPIOCtrl[GPIO_A_OUT] &= ~0x04; //A2
+ 665   4                                              break;
+ 666   4                                      default:
+ 667   4                                              break;
+ 668   4                                      }
+ 669   3      
+ 670   3                                      return IrKeyEvent[PreKeyIndex][0];
+ 671   3                              }
+ 672   2                              else if(IsTimeOut(&IrKeyWaitTimer))
+ 673   2                              {
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 12  
+
+ 674   3      #ifdef IR_KEY_C_DEBUG                   
+ 675   3                                      DBG(("IR CPS: %02BX\n", IrKeyEvent[PreKeyIndex][1]));
+ 676   3      #endif
+ 677   3      
+ 678   3                                      if(PreKeyIndex == 36)   
+ 679   3                                      {        
+ 680   4                                              TimeOutSet(&IrKeyWaitTimer, 1000);      
+ 681   4                                      }
+ 682   3                                      else
+ 683   3                                      {
+ 684   4                                              TimeOutSet(&IrKeyWaitTimer, IR_KEY_CPH_TIME);
+ 685   4                                      }
+ 686   3                                      //TimeOutSet(&IrKeyWaitTimer, IR_KEY_CPH_TIME);
+ 687   3                                      IrKeyState = IR_KEY_STATE_CP;
+ 688   3                                      return IrKeyEvent[PreKeyIndex][1];
+ 689   3                              }
+ 690   2                              break;
+ 691   2      
+ 692   2                      case IR_KEY_STATE_CP:
+ 693   2                              if(PreKeyIndex != KeyIndex)
+ 694   2                              {
+ 695   3      #ifdef IR_KEY_C_DEBUG                   
+ 696   3                                      DBG(("IR CPR: %02BX\n", IrKeyEvent[PreKeyIndex][3]));
+ 697   3      #endif                          
+ 698   3                                      IrKeyState = IR_KEY_STATE_IDLE;
+ 699   3                                      return IrKeyEvent[PreKeyIndex][3];
+ 700   3                              }
+ 701   2                              else if(IsTimeOut(&IrKeyWaitTimer))
+ 702   2                              {
+ 703   3      #ifdef IR_KEY_C_DEBUG                   
+ 704   3                                      DBG(("IR CPH: %02BX\n", IrKeyEvent[PreKeyIndex][2]));
+ 705   3      #endif                          
+ 706   3                                      if(PreKeyIndex == 36)   
+ 707   3                                      {        
+ 708   4                                              TimeOutSet(&IrKeyWaitTimer, 1000);      
+ 709   4                                      }
+ 710   3                                      else
+ 711   3                                      {
+ 712   4                                              TimeOutSet(&IrKeyWaitTimer, IR_KEY_CPH_TIME);
+ 713   4                                      }
+ 714   3                                      return IrKeyEvent[PreKeyIndex][2];
+ 715   3                              }
+ 716   2                              break;
+ 717   2      
+ 718   2                      default:
+ 719   2                              IrKeyState = IR_KEY_STATE_IDLE;
+ 720   2                              break;
+ 721   2              }
+ 722   1              return MSG_NONE;
+ 723   1      }
+ 724          
+ 725          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1417    ----
+   CONSTANT SIZE    =    173    ----
+   XDATA SIZE       =     29       3
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+C51 COMPILER V9.00   IR_KEY                                                                05/16/2015 15:55:48 PAGE 13  
+
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

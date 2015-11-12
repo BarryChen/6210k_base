@@ -1,0 +1,1 @@
+"spi_flash\spi_flash_asm.a51" SET (LARGE) DEBUG PRINT(.\output\lst\spi_flash_asm.lst) OBJECT(.\output\obj\spi_flash_asm.obj) EP

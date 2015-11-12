@@ -1,0 +1,758 @@
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE USER_INTERFACE
+OBJECT MODULE PLACED IN .\output\obj\user_interface.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE lib_if\user_interface.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE IN
+                    -CDIR(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\sl
+                    -ave;.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\user_interface.lst) OBJECT(.\output\obj\user_interface.obj)
+
+line level    source
+
+   1          #include "syscfg.h"
+   2          #include "display.h"
+   3          #include "radio_app_interface.h"
+   4          #include "user_interface.h"
+   5          #include "playctrl.h"
+   6          #include "breakpoint.h"
+   7          #include "debug.h"
+   8          #include "power.h"
+   9          #include "device.h"
+  10          #include "spi_play.h"
+  11          #include "touchkey_ctrl.h"
+  12          #include "pt231x.h"
+  13          #include "bluetooth_ctrl.h"
+  14          #include "npca110x.h"
+  15          
+  16          
+  17          
+  18          BOOL IsDacMute = FALSE;
+  19          BOOL KeyInLedFlashOn = 0;
+  20          WORD KeyInLedFlashHoldTmr = 0;
+  21          WORD KeyInLedFlashIntTmr = 0;
+  22          #ifdef FUNC_BEEP_SOUND_EN       
+              BOOL gPushKeyNeedBeepFlag = FALSE;      // ÐèÒª²úÉú°´¼üàÖàÖÉù±êÖ¾
+              BOOL gPushKeyBeepStartFlag = FALSE;     //°´¼üàÖàÖÉùÆô¶¯±êÖ¾
+              TIMER gPushKeyBeepTimer;        //°´¼üàÖàÖÉùÃù½ÐÒ»´ÎµÄÊ±¼ä³¤¶È¶¨Ê±
+              #ifdef FUNC_RADIO_EN
+              extern BYTE CODE gFmInGain[];
+              #endif
+              #ifdef FUNC_LINEIN_EN
+              extern BYTE CODE gLineInGain[];
+              #endif
+              #endif
+  33          extern VOID BluetothCtrlEnd(VOID);
+  34          
+  35          extern BOOL GetBtMuteFlag();
+  36          
+  37          #ifdef FUNC_SAVE_PLAYTIME_EN
+              BOOL gSavePlayTimeEnFlag = FALSE;
+              #endif
+  40          
+  41          #ifdef  FUNC_DEVICE_FORCEPAUSE_EN
+              extern BOOL gDevicePlayForcePauseFlag;
+              #endif
+  44          
+  45          extern VOID PlayVol2Decd(VOID);
+  46          extern VOID SetLineInVolume(BYTE Vol);
+  47          extern VOID DeviceAudioSetVolume(VOID);
+  48          extern VOID SetBluetoothVolume(BYTE Vol);
+  49          
+  50          extern BYTE gRunningDev;
+  51          extern BOOL ROM_QuickResponse(BYTE Dev);
+  52          BOOL IsSupportSpecialDevice = FALSE;    //Ö§³Ö²¿·ÖÌØÉ«Éè±¸£¬MBR 512×Ö½Ú×îºóÁ½¸ö×Ö½Ú²»ÊÇ0x55AA¡¾Ä¬ÈÏÎªFLASE£¬²
+             -»Ö§³ÖÌØÊâÉè±¸¡¿
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 2   
+
+  53          
+  54          
+  55          // Ñ¡ÔñDAC ºÍÍâ²¿¹¦·ÅMute×´Ì¬
+  56          // Param: 
+  57          //              DacMuteEn: 1--Ñ¡ÔñDac Mute,  0--Ñ¡ÔñÉèÖÃÒôÁ¿Îª0
+  58          //              ExMuteEn: Íâ²¿¹¦·ÅMute Ê¹ÄÜÑ¡Ôñ
+  59          VOID MuteOn(BOOL DacMuteEn, BOOL ExMuteEn)
+  60          {
+  61   1      #ifdef FUNC_EXMUTE_EN
+  62   1              if(ExMuteEn == TRUE)
+  63   1              {
+  64   2                      ExMuteOn();     
+  65   2              }
+  66   1      #endif
+  67   1      #if defined(FUNC_PT231X_EN) && !defined(AU6210K_NR_D_8_CSRBT)
+                    PT2313MuteOnOff(1);
+              #endif
+  70   1              if(DacMuteEn == TRUE)
+  71   1              {       
+  72   2      #ifdef AU6210K_NR_D_8_CSRBT
+                              NPCA110X_SetOutMute(TRUE);
+              #else
+  75   2      #endif
+  76   2                      InDacMuteEn();  
+  77   2      
+  78   2                      //¿ÉÒÔÓÃÒÔÏÂ´úÂë½â¾öLineIn Mute×´Ì¬ÏÂÂ©ÒôÎÊÌâ£¬µ«ÊÇ»á´øÀ´ÇáÎ¢µÄPOP.
+  79   2      #ifdef FUNC_LINEIN_EN
+  80   2                      if(gSys.SystemMode == SYS_MODE_LINEIN)
+  81   2                      {
+  82   3                              DBG(("InDacChannelSel(DAC_CH_NONE),Mute\n"));
+  83   3                              InDacChannelSel(DAC_CH_NONE);
+  84   3                      }
+  85   2      #endif
+  86   2      
+  87   2      
+  88   2      #if defined(FUNC_BLUETOOTH_CSR_EN)||defined(AU6210K_NR_D_8_CSRBT)
+  89   2                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH)
+  90   2                      {
+  91   3                              DBG(("btInDacChannelSel(DAC_CH_NONE),Mute\n"));
+  92   3                              InDacChannelSel(DAC_CH_NONE);
+  93   3                      }
+  94   2      #endif
+  95   2      
+  96   2      
+  97   2      #if defined(AU6210K_JLH_JH82B)
+              #else
+  99   2      #ifdef FUNC_BLUETOOTH_EN
+                              if (gSys.SystemMode == SYS_MODE_BLUETOOTH)
+                              {
+                                      InDacChannelSel(DAC_CH_NONE);
+              
+                              }
+              #endif
+ 106   2      #endif
+ 107   2      
+ 108   2              }
+ 109   1              else
+ 110   1              {
+ 111   2      #ifdef AU6210K_NR_D_8_CSRBT
+                              NPCA110X_DAC1_Set_Volume_and_Mute(0);
+                              NPCA110X_SetOutMute(TRUE);
+              #else
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 3   
+
+ 115   2                      InDacSetVolume(0, 0);
+ 116   2      #endif
+ 117   2              }       
+ 118   1      
+ 119   1      #ifdef  FUNC_RADIO_EN
+                      if(gSys.SystemMode == SYS_MODE_RADIO)
+                      {
+                              RadioMute(TRUE);
+                      }
+              #endif  
+ 125   1      
+ 126   1              IsDacMute = TRUE;
+ 127   1      }
+ 128          
+ 129          
+ 130          // ½â³ýMute×´Ì¬
+ 131          VOID UnMute(VOID)
+ 132          {
+ 133   1      #ifdef  FUNC_DEVICE_FORCEPAUSE_EN
+                      if(gDevicePlayForcePauseFlag == TRUE)
+                      {
+                              return;
+                      }
+              #endif
+ 139   1      
+ 140   1              DBG1(("unmute.....  \n"));
+ 141   1              if(gSys.Volume == 0)
+ 142   1              {
+ 143   2                      return;
+ 144   2              }       
+ 145   1      
+ 146   1              if(IsDacMute == TRUE)
+ 147   1              {               
+ 148   2      #ifdef  FUNC_RADIO_EN
+                              if(gSys.SystemMode == SYS_MODE_RADIO)
+                              {
+                                      RadioMute(FALSE);
+                                      RadioSetVolume(gSys.Volume);
+                              }
+              #endif  
+ 155   2      
+ 156   2                      //Èç¹ûMuteOnº¯Êýµ÷ÓÃInDacChannelSelº¯Êý£¬ÐèÒªÔÚUnMuteº¯ÊýÖÐÖØÐÂÁ¬Í¨LINEINÍ¨µÀ.
+ 157   2      #ifdef FUNC_LINEIN_EN
+ 158   2                      if(gSys.SystemMode == SYS_MODE_LINEIN)
+ 159   2                      {
+ 160   3                              DBG(("InDacChannelSel(DAC_CH_LINEIN),UnMute,gSys.Volume:%bd\n", gSys.Volume));
+ 161   3      
+ 162   3      #ifdef AU6210K_NR_D_8_CSRBT
+                                      NPCA110X_ADC_Input_CH_Select(INPUT_CH0);
+                                      NPCA110X_DAC1_Set_Volume_and_Mute(gSys.Volume);
+              #else
+ 166   3                              InDacChannelSel(LINEIN_IO_TYPE);
+ 167   3                              SetLineInVolume(gSys.Volume);
+ 168   3      #endif                  
+ 169   3                      }
+ 170   2      #endif  
+ 171   2      
+ 172   2      #ifdef FUNC_BLUETOOTH_CSR_EN
+ 173   2                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH)
+ 174   2                      {
+ 175   3      #ifdef AU6210K_NR_D_8_CSRBT
+                                      NPCA110X_ADC_Input_CH_Select(INPUT_CH1);
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 4   
+
+                                      NPCA110X_DAC1_Set_Volume_and_Mute(gSys.Volume);
+              #else
+ 179   3                      
+ 180   3                              DBG(("InDacChannelSel(DAC_CH_LINEIN),UnMute,gSys.Volume:%bd\n", gSys.Volume));
+ 181   3                              InDacChannelSel(BLUETOOTH_CH_TYPE);
+ 182   3                              SetBluetoothVolume(gSys.Volume);
+ 183   3                      
+ 184   3      #endif                  
+ 185   3                      }
+ 186   2      #endif  
+ 187   2      
+ 188   2      #if defined(AU6210K_JLH_JH82B)
+                              SetBluetoothVolume(gSys.Volume);
+              #else
+ 191   2      #ifdef FUNC_BLUETOOTH_EN
+                              if (gSys.SystemMode == SYS_MODE_BLUETOOTH)
+                              {
+                                      DBG(("bluetooth unmte\n"));
+                                      SET_E0_ANALOG_IN();     //½«E0E1ÅäÖÃÎªÄ£Äâ¶Ë¿Ú
+                                      SET_E1_ANALOG_IN();     
+                                      InDacChannelSel(DAC_CH_E0E1); //À¶ÑÀÓÃE0E1Í¨µÀ
+                                      //SetBluetoothVolume(gSys.Volume);
+                              }
+              #endif
+ 201   2      #endif
+ 202   2      
+ 203   2              }
+ 204   1      #ifdef AU6210K_NR_D_8_CSRBT
+                      NPCA110X_SetOutMute(FALSE);
+              #endif
+ 207   1              InDacMuteDis();
+ 208   1      
+ 209   1      #ifdef FUNC_EXMUTE_EN
+ 210   1              if(gSys.Volume > 0)
+ 211   1              {
+ 212   2      #ifdef  FUNC_HEADPHONE_DETECT_EN
+                              if(IsHeadphoneLinkFlag == FALSE)
+              #endif
+ 215   2                      {
+ 216   3                              ExMuteOff();
+ 217   3                      }       
+ 218   2              }               
+ 219   1      #endif
+ 220   1      #if defiend(FUNC_PT231X_EN) && !defiend(AU6210K_NR_D_8_CSRBT)
+*** WARNING C322 IN LINE 220 OF lib_if\user_interface.c: unknown identifier
+*** WARNING C323 IN LINE 220 OF lib_if\user_interface.c: newline expected, extra characters found
+                    PT2313MuteOnOff(0);
+              #endif
+ 223   1      
+ 224   1              IsDacMute = FALSE;
+ 225   1      }
+ 226          
+ 227          
+ 228          // ¸Ä±äMute×´Ì¬
+ 229          VOID MuteStatusChange(VOID)
+ 230          {       
+ 231   1              DBG((">>MuteStatusChange()\n"));
+ 232   1              if(gSys.MuteFg)
+ 233   1              {
+ 234   2                      gSys.MuteFg = FALSE;            
+ 235   2                      UnMute();       
+ 236   2                      DBG1(("4433\n"));
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 5   
+
+ 237   2              }
+ 238   1              else
+ 239   1              {       
+ 240   2                      gSys.MuteFg = TRUE;
+ 241   2                      MuteOn(TRUE, TRUE);       
+ 242   2              }
+ 243   1      #ifdef FUNC_DISP_EN
+ 244   1              DispMute();
+ 245   1      #endif  
+ 246   1              DBG(("<<MuteStatusChange()\n"));
+ 247   1      }
+ 248          
+ 249          
+ 250          // ÉèÖÃÏµÍ³ÒôÁ¿
+ 251          VOID SetVolume(VOID)
+ 252          {
+ 253   1              DBG((">>SetVolume() %d\n",(WORD)gSys.Volume));
+ 254   1              
+ 255   1              switch(gSys.SystemMode)
+ 256   1              {
+ 257   2      #if (defined(FUNC_USB_EN) || defined(FUNC_CARD_EN))
+ 258   2      #ifdef FUNC_USB_EN
+                              case SYS_MODE_USB:
+              #endif
+ 261   2      #ifdef FUNC_CARD_EN
+ 262   2                      case SYS_MODE_SD:
+ 263   2      #endif
+ 264   2      #ifdef  FUNC_OTP_PLAY_EN
+                              case SYS_MODE_OTPDEV:
+              #endif
+ 267   2                              PlayVol2Decd();
+ 268   2                              break;
+ 269   2      #endif
+ 270   2      
+ 271   2      #ifdef FUNC_LINEIN_EN
+ 272   2                      case SYS_MODE_LINEIN:
+ 273   2                              SetLineInVolume(gSys.Volume);
+ 274   2                              break;
+ 275   2      #endif
+ 276   2      
+ 277   2      #ifdef FUNC_BLUETOOTH_CSR_EN
+ 278   2                      case SYS_MODE_BLUETOOTH:
+ 279   2                              SetBluetoothVolume(gSys.Volume);
+ 280   2                              break;
+ 281   2      #endif
+ 282   2      
+ 283   2      #if 0//def FUNC_BLUETOOTH_EN
+                              case SYS_MODE_BLUETOOTH:
+                                      SetBluetoothVolume(gSys.Volume);
+                                      break;
+              #endif
+ 288   2      
+ 289   2      
+ 290   2      #ifdef FUNC_RADIO_EN
+                              case SYS_MODE_RADIO:
+                                      RadioSetVolume(gSys.Volume);
+                                      break;
+              #endif
+ 295   2      
+ 296   2      #ifdef FUNC_AUDIO_EN
+                              case SYS_MODE_AUDIO:
+                                      DeviceAudioSetVolume();
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 6   
+
+                                      break;
+              #endif
+ 301   2      
+ 302   2      #ifdef FUNC_AUDIO_READER_EN
+                              case SYS_MODE_AUDIO_READER:
+                                      DeviceAudioSetVolume();
+                                      break;
+              #endif
+ 307   2      
+ 308   2                      default:
+ 309   2                              return;//break;
+ 310   2              }
+ 311   1      
+ 312   1      #ifdef FUNC_BREAK_POINT_EN
+ 313   1              BP_SaveInfo(&gBreakPointInfo.PowerMemory.Volume,sizeof(gBreakPointInfo.PowerMemory.Volume));
+ 314   1      #endif
+ 315   1      
+ 316   1      }
+ 317          
+ 318          
+ 319          // ÉèÖÃÏµÍ³ÒôÁ¿²¢Í¬Ê±½â³ýMute×´Ì¬
+ 320          VOID SetVolumeWithMute(VOID)
+ 321          {
+ 322   1      #ifdef AU6210K_NR_D_8_CSRBT
+                      DBG((">>NPCA110X_DAC1_Set_Volume_and_Mute() %d\n",(WORD)gSys.Volume));
+              #if (defined(FUNC_USB_EN) || defined(FUNC_CARD_EN))
+                      if(gSys.SystemMode == SYS_MODE_SD)
+                              SetVolume();
+                      else
+              #endif
+                      {
+                              NPCA110X_DAC1_Set_Volume_and_Mute(gSys.Volume);
+              #ifdef FUNC_BREAK_POINT_EN
+                              BP_SaveInfo(&gBreakPointInfo.PowerMemory.Volume,sizeof(gBreakPointInfo.PowerMemory.Volume));
+              #endif
+                              
+                      }
+                      DBG(("gSys.Volume = %x\n",gSys.Volume));        
+              DBG(("gBreakPointInfo.PowerMemory.Volume = %x\n",gBreakPointInfo.PowerMemory.Volume));  
+              
+              
+              #else
+ 341   1              SetVolume();
+ 342   1      #endif
+ 343   1      
+ 344   1              if((gSys.Volume == 0) && (IsDacMute == FALSE))
+ 345   1              {
+ 346   2                      gSys.MuteFg = FALSE;            
+ 347   2                      MuteOn(FALSE, TRUE);            
+ 348   2              }
+ 349   1              if((IsDacMute == TRUE) && (gSys.Volume > 0))
+ 350   1              {
+ 351   2                      gSys.MuteFg = TRUE;
+ 352   2              }
+ 353   1              if(gSys.MuteFg == TRUE)
+ 354   1              {
+ 355   2                      gSys.MuteFg = FALSE;
+ 356   2                      DBG1(("rrrrrr\n"));
+ 357   2                      UnMute();       
+ 358   2              }
+ 359   1      
+ 360   1      #ifdef FUNC_DISP_EN
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 7   
+
+ 361   1      #ifndef FUNC_SINGLE_LED_EN
+                      DispMute();       //ÕýÈ·»Ö¸´MuteÏÔÊ¾×´Ì¬¡£±ÜÃâ´ÓMute×´Ì¬ÏÂÉèÖÃÒôÁ¿Ôì³ÉµÄÏÔÊ¾´íÎó¡£
+              #endif  
+ 364   1      #endif
+ 365   1      }
+ 366          
+ 367          
+ 368          // ÉèÖÃÏµÍ³ÒôÁ¿²¢Í¬Ê±½â³ýMute×´Ì¬¡¢ÏÔÊ¾ÒôÁ¿
+ 369          VOID SetVolumeWithDisplay(VOID)
+ 370          {
+ 371   1              SetVolumeWithMute();
+ 372   1      #ifdef FUNC_DISP_EN
+ 373   1              DispVolume(TRUE);
+ 374   1      #endif
+ 375   1      }
+ 376          
+ 377          
+ 378          //µ÷½ÚÏµÍ³ÒôÁ¿
+ 379          VOID VolumeAdjust(BYTE Direction)
+ 380          {       
+ 381   1      #ifdef  FUNC_DEVICE_FORCEPAUSE_EN
+                      if(gDevicePlayForcePauseFlag == TRUE) 
+                      {
+                              return;
+                      }                                       
+              #endif
+ 387   1              
+ 388   1              if(Direction == UP)
+ 389   1              {
+ 390   2                      DBG(("Vol+\n"));                        
+ 391   2                      if(gSys.Volume < VOLUME_MAX)
+ 392   2                      {
+ 393   3                              gSys.Volume++;  
+ 394   3                      }       
+ 395   2              }
+ 396   1              else
+ 397   1              {
+ 398   2                      DBG(("Vol-\n"));                        
+ 399   2                      if(gSys.Volume > VOLUME_MIN)
+ 400   2                      {
+ 401   3                              gSys.Volume--;
+ 402   3                      }       
+ 403   2              }
+ 404   1      #ifdef AU6210K_ZB_BT007_CSR
+ 405   1                      {
+ 406   2                              if(gSys.Volume == VOLUME_MAX)   
+ 407   2                              {
+ 408   3                                      SPI_PlaySelectNum(SPIPLAY_SONG_MAX_VOLUME, 1);                  
+ 409   3                                      
+ 410   3                                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH && !GetBtMuteFlag())
+ 411   3                                      {
+ 412   4                                              DBG1(("123\m"));
+ 413   4                                              UnMute();
+ 414   4                                      }
+ 415   3                              }
+ 416   2              
+ 417   2                              if(gSys.Volume == VOLUME_MIN)   
+ 418   2                              {
+ 419   3                                      SPI_PlaySelectNum(SPIPLAY_SONG_MIN_VOLUME, 1);                  
+ 420   3                                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH && !GetBtMuteFlag())
+ 421   3                                      {
+ 422   4                                              DBG1(("345\m"));
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 8   
+
+ 423   4                                              UnMute();
+ 424   4                                      }
+ 425   3                              }
+ 426   2                      }
+ 427   1      #endif  
+ 428   1              SetVolumeWithDisplay(); 
+ 429   1                              
+ 430   1      #ifdef FUNC_BEEP_SOUND_EN       
+                      if(gSys.Volume < VOLUME_MAX)    
+                      {
+                              PushKeyBeep(1);
+                      }
+                      else
+                      {
+                              PushKeyBeep(2);
+                      }
+              #endif  
+ 440   1      }
+ 441          
+ 442          
+ 443          #ifndef FUNC_RADIO_EN
+ 444          //ÓÉÓÚDACÇý¶¯´úÂëÖÐ»áµ÷ÓÃ£¬ÐèÒªÔÚFUNC_RADIO_ENºê¹Ø±ÕÊ±ÉùÃ÷ÒÔÏÂº¯Êý
+ 445          VOID RadioCtrlInit(VOID)
+ 446          {
+ 447   1              //DBG(("RadioCtrlInit,00\n"));
+ 448   1      }
+ 449          
+ 450          
+ 451          VOID RadioCtrlDeinit(VOID)
+ 452          {
+ 453   1              //DBG(("RadioCtrlDeinit,00\n"));
+ 454   1      }
+ 455          
+ 456          
+ 457          BOOL RadioMute(BOOL MuteFlag)
+ 458          {
+ 459   1              //DBG(("RadioMute,00\n"));
+ 460   1              return TRUE;
+ 461   1      }
+*** WARNING C280 IN LINE 457 OF LIB_IF\USER_INTERFACE.C: 'MuteFlag': unreferenced local variable
+ 462          #endif
+ 463          
+ 464          
+ 465          #ifdef FUNC_BEEP_SOUND_EN
+              //  ²úÉú°´¼üàÖàÖÉù
+              // Param:
+              //              ContinueNum: Á¬Ðø²úÉú°´¼üàÖàÖÉù´ÎÊý
+              VOID PushKeyBeep(BYTE ContinueNum)
+              {               
+                      if(gPushKeyNeedBeepFlag == TRUE)                
+                      {
+              #ifdef  FUNC_RADIO_EN
+                              if(gSys.SystemMode == SYS_MODE_RADIO)  
+                              {
+                                      SysClkDivClr();
+                              }
+              #endif
+                              
+              #ifdef FUNC_EXMUTE_EN
+                              if((gSys.Volume > 0) && (IsDacMute == TRUE))
+                              {               
+              #ifdef  FUNC_HEADPHONE_DETECT_EN
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 9   
+
+                                      if(IsHeadphoneLinkFlag == FALSE)
+              #endif
+                                      {
+                                              ExMuteOff();
+                                      }
+                              }               
+              #endif
+                              
+                              while(ContinueNum)
+                              {               
+                                      ContinueNum--;
+                                      //ÉèÖÃGPE0(FM_L)×÷ÎªÐÅºÅÊäÈëÍ¨µÀ
+                                      baGPIOCtrl[GPIO_E_OE] &= ~0x01;
+                                      baGPIOCtrl[GPIO_E_IE] &= ~0x01;
+                                      baGPIOCtrl[GPIO_E_PU] &= ~0x01;
+                                      baGPIOCtrl[GPIO_E_PD] |= 0x01;          
+                                      DBG(("InDacExFmConnect(DAC_CH_E0_L)\n"));
+                                      InDacExFmConnect(DAC_CH_E0_L);  
+              #ifdef  FUNC_LINEIN_EN
+                                      if(gSys.SystemMode == SYS_MODE_LINEIN) 
+                                      {
+                                              InDacLineInGain(gLineInGain[gSys.Volume], gLineInGain[gSys.Volume]);                                    
+                                      }
+                                      else
+              #endif
+                                      {
+              #ifdef  FUNC_RADIO_EN
+                                              InDacLineInGain(gFmInGain[gSys.Volume], gFmInGain[gSys.Volume]);
+              #else
+                                              InDacLineInGain(gLineInGain[gSys.Volume], gLineInGain[gSys.Volume]);    
+              #endif
+                                      }
+                                      WaitUs(10);
+                                      baGPIOCtrl[GPIO_E_OE] |= 0x01;  //ÉèÖÃE0ÎªÊä³ö
+                                      gPushKeyBeepStartFlag = TRUE;
+                                      
+                                      TimeOutSet(&gPushKeyBeepTimer, 20);
+                                      while(!IsTimeOut(&gPushKeyBeepTimer))
+                                      {                       
+                                              if((gSys.SystemMode == SYS_MODE_USB) || (gSys.SystemMode == SYS_MODE_SD)) 
+                                              {
+                                                      SongPlayDo();
+                                              }       
+                                      }
+                                      gPushKeyBeepStartFlag = FALSE;          
+                                      
+                                      DBG(("InDacExFmDisConnect()\n"));
+                                      InDacExFmDisConnect();          
+                                      baGPIOCtrl[GPIO_E_OE] &= ~0x01;
+                                      baGPIOCtrl[GPIO_E_IE] &= ~0x01;
+                                      baGPIOCtrl[GPIO_E_PU] &= ~0x01;
+                                      baGPIOCtrl[GPIO_E_PD] &= ~0x01;                         
+              
+                                      if(ContinueNum)
+                                      {
+                                              TimeOutSet(&gPushKeyBeepTimer, 100);
+                                              while(!IsTimeOut(&gPushKeyBeepTimer))
+                                              {                       
+                                                      if((gSys.SystemMode == SYS_MODE_USB) || (gSys.SystemMode == SYS_MODE_SD)) 
+                                                      {
+                                                              SongPlayDo();
+                                                      }       
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 10  
+
+                                              }               
+                                      }
+                              }
+                              
+              #ifdef FUNC_EXMUTE_EN
+                              if((gSys.Volume > 0) && (IsDacMute == TRUE))
+                              {               
+              #ifdef  FUNC_HEADPHONE_DETECT_EN
+                                      if(IsHeadphoneLinkFlag == FALSE)
+              #endif
+                                      {
+                                              ExMuteOn();
+                                      }
+                              }               
+              #endif
+                              
+              #ifdef  FUNC_RADIO_EN
+                              if(gSys.SystemMode == SYS_MODE_RADIO)  
+                              {
+                                      SysClkDivSet(CLK_DIV_RATE);
+                              }
+              #endif
+                              gPushKeyNeedBeepFlag = FALSE;
+                      }
+              }
+              #endif
+ 572          
+ 573          
+ 574          //----------------------------------------------------------
+ 575          // Èç¹ûÓÃ»§ÐèÒª¡¾ÂË¿ÕÎÄ¼þ¼Ð¡¿¹¦ÄÜ£¬ÒªÔÚÓ¦ÓÃ´úÂëÉÏÖØÐ´FsInfoInit()º¯Êý
+ 576          #ifdef FUNC_FOLDER_EN
+              #define MAX_FOLDER_NUM_SAVE     1024                    //save foler 1-2048 empty flag
+              BYTE gFolderEmpty[MAX_FOLDER_NUM_SAVE / 8];
+              extern WORD gMaxFoldBitMapNum;
+              extern BYTE XDATA* gpFoldEmpty;
+              
+              
+              // ÂË¿ÕÎÄ¼þ¼Ð³õÊ¼»¯
+              VOID FsInfoInit(VOID)
+              {
+              
+                      gpFoldEmpty = &gFolderEmpty;
+                      gMaxFoldBitMapNum = MAX_FOLDER_NUM_SAVE;
+                      memset(gpFoldEmpty, 0xFF, sizeof(gFolderEmpty));
+                      DBG(("FsInfoInit,gpFoldEmpty:0x%lx, gMaxFoldBitMapNum:%u\n", (DWORD)gpFoldEmpty, gMaxFoldBitMapNum));   
+              }
+              #endif
+ 593          
+ 594          
+ 595          //----------------------------------------------------------
+ 596          // Èç¹ûÓÃ»§ÐèÒªÊµÏÖ¡¾°´¼ü¿ìËÙÏìÓ¦¡¿¹¦ÄÜ£¬ÒªÔÚÓ¦ÓÃ´úÂëÉÏÖØÐ´QuickResponse()º¯Êý
+ 597          #ifdef FUNC_QUICK_RESPONSE_EN
+              extern BOOL IsSwitchMode;
+              // Èç¹ûÐèÒª¿ìËÙÍË³ö·µ»ØTRUE.
+              BOOL QuickResponse(VOID)
+              {
+                      // To do...     
+                      if(MessageGet(MSG_FIFO_DEV_CTRL) == MSG_MODE_SW)
+                      {
+                              IsSwitchMode = TRUE;  
+                              MessageInit();
+                              return TRUE;
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 11  
+
+                      }
+              
+                      return FALSE;
+              }
+              #endif
+ 613          
+ 614          
+ 615          //----------------------------------------------------------
+ 616          // Èç¹ûÓÃ»§ÐèÒªÔÚ1msÏµÍ³Ê±»ùÉÏ×ö´¦Àí£¬ÒªÔÚÓ¦ÓÃ´úÂëÉÏÖØÐ´TimerTick1ms()º¯Êý
+ 617          extern BOOL gIsNvmOnUse;
+ 618          VOID TimerTick1ms(VOID)
+ 619          {
+ 620   1      #if     (PWR_KEY_MODE == PWR_KEY_SLIDE_SWITCH)
+ 621   1              extern BOOL gIsPwrkeyPadOn;
+ 622   1      
+ 623   1              if((gIsPwrkeyPadOn == FALSE) && (gIsNvmOnUse == FALSE))
+ 624   1              {
+ 625   2                      //²»ÄÜÖ´ÐÐInDacChannelSel¡¢InDacPowerDownÖ®Àà²Ù×÷¡£
+ 626   2      #ifdef FUNC_DISP_EN
+ 627   2                      DispDeInit();
+ 628   2      #endif  
+ 629   2      #ifdef FUNC_EXMUTE_EN           
+ 630   2                      ExMuteOn(); 
+ 631   2      #endif
+ 632   2                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH)
+ 633   2                              BluetothCtrlEnd();
+ 634   2                      
+ 635   2                      DBG1(("22222GoToPDMode\n"));
+ 636   2                      //InDacMuteEn();        //¹Ø±ÕÊÇÎªÁË ½â¾ö¹Ø»úÊ±¼äÌ«³¤ÎÊÌâ
+ 637   2                      GoToPDMode();           //Ö´ÐÐÓ²¿ª¹ØµÄÏµÍ³¹Ø±Õ¶¯×÷
+ 638   2              }
+ 639   1      #endif
+ 640   1      
+ 641   1      #ifdef FUNC_SEG_LED_EN 
+              #if !defined(FUNC_TIMER1_REFRESH_LED_EN)
+                      LedFlushDisp();
+              #endif
+              #endif
+ 646   1      
+ 647   1      #ifdef FUNC_SEG_LCD_EN 
+                      LcdFlushDisp();
+              #endif
+ 650   1      #if 0
+                      if(KeyInLedFlashHoldTmr)
+                      {
+                              KeyInLedFlashHoldTmr--;
+                              if(KeyInLedFlashIntTmr)
+                              {
+                                      KeyInLedFlashIntTmr--;                          
+                              }
+                              else
+                              {
+                                      KeyInLedFlashIntTmr =100;
+                                      if(KeyInLedFlashOn)
+                                      {
+                                              KeyInLedFlashOn =0;
+                                              baGPIOCtrl[GPIO_B_OE]|=0x80;
+                                              baGPIOCtrl[GPIO_B_OUT]|=0x80;
+                                      }
+                                      else
+                                      {
+                                              KeyInLedFlashOn =1;
+C51 COMPILER V9.00   USER_INTERFACE                                                        05/16/2015 15:55:46 PAGE 12  
+
+                                              baGPIOCtrl[GPIO_B_OE]|=0x80;
+                                              baGPIOCtrl[GPIO_B_OUT]&=(~0x80);
+                                      }
+                              }
+                      }
+              #endif
+ 676   1              // To do...
+ 677   1      }
+ 678          
+ 679          
+ 680          // Èç¹û¿Í»§ÐèÒªºöÂÔÌØ¶¨VID/PIDµÄUSBÉè±¸£¬¿ÉÒÔÍ¨¹ý±¾º¯ÊýÊµÏÖ
+ 681          BOOL USB_IgnoreDev(VOID)
+ 682          {
+ 683   1              if(gLibUsbInfo.VID == 0x05AC)   //ºöÂÔÆ»¹û¹«Ë¾ËùÓÐÉè±¸
+ 684   1              {
+ 685   2                      DBG(("Apple device!\n"));
+ 686   2                      return TRUE;
+ 687   2              }
+ 688   1      
+ 689   1              return FALSE;
+ 690   1      }
+ 691          
+ 692          
+ 693          //----------------------------------------------------------
+ 694          // Èç¹û²»Ö§³ÖUSB AudioÄ£Ê½£¬ÏµÍ³²»¼ì²âPCÁ¬½Ó×´Ì¬£¬ÒÔÔöÇ¿UÅÌ¼æÈÝÐÔ¡£
+ 695          BOOL IsAudDetectDisable(VOID)
+ 696          {
+ 697   1      #if (defined(FUNC_AUDIO_EN) || defined(FUNC_READER_EN) || defined(FUNC_AUDIO_READER_EN))
+ 698   1              return FALSE;
+ 699   1      #else
+                      return TRUE;
+              #endif
+ 702   1      }
+ 703          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    663    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      7       2
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  3 WARNING(S),  0 ERROR(S)

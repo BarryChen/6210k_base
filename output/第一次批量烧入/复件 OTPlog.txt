@@ -1,0 +1,11 @@
+
+*--------------------------------------------*
+* 星期五 三月 13 2015 18:48:34
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : F:/MVsion/6210/Project/智博/168_7key/output/MVs6210_BT168_7KEY_IR_334_CSR_V6.hex
+Download Size : 32704 bytes
+CheckSum      : 55
+IsBitFlip     : 0
+

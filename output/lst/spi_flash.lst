@@ -1,0 +1,512 @@
+C51 COMPILER V9.00   SPI_FLASH                                                             05/16/2015 15:55:49 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SPI_FLASH
+OBJECT MODULE PLACED IN .\output\obj\spi_flash.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE spi_flash\spi_flash.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCD
+                    -IR(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slav
+                    -e;.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\spi_flash.lst) OBJECT(.\output\obj\spi_flash.obj)
+
+line level    source
+
+   1          #include <reg51.h>
+   2          #include <string.h>
+   3          #include "type.h"
+   4          #include "syscfg.h"
+   5          #include "buffer.h"
+   6          #include "spi_flash.h"
+   7          #include "utility.h"
+   8          #include "dir.h"
+   9          #include "file.h"
+  10          #include "debug.h"
+  11          
+  12          #ifdef FUNC_SPI_FLASH_EN
+  13          
+  14          SPI_FLASH_MODEL SpiFlashModel;
+  15          
+  16          // SST Status Register bit.
+  17          #define SPITESTADDR     0x0123
+  18          #define BPL             0x80
+  19          #define BP3             0x20
+  20          #define BP2             0x10
+  21          #define BP1             0x08
+  22          #define BP0             0x04
+  23          
+  24          #define FLASH_CS_PORT   GPIO_B_IN
+  25          #define FLASH_DI_PORT   GPIO_B_IN
+  26          #define FLASH_DO_PORT   GPIO_B_IN
+  27          #define FLASH_CLK_PORT  GPIO_B_IN
+  28          
+  29          #define FLASH_CS_PIN            0x08//b3
+  30          #define FLASH_DI_PIN            0x02//b1
+  31          #define FLASH_DO_PIN            0x04//b2
+  32          #define FLASH_CLK_PIN           0x01//b0
+  33          
+  34          #define SpiFlashCsAssert()              baGPIOCtrl[FLASH_CS_PORT + 1] &= (~FLASH_CS_PIN)
+  35          #define SpiFlashCsDeassert()    baGPIOCtrl[FLASH_CS_PORT + 1] |= FLASH_CS_PIN
+  36          
+  37          extern BOOL SpiSendByte(BYTE Dat);
+  38          extern BYTE SpiRecvByte(VOID);
+  39          
+  40          BYTE SPI_DI = FLASH_DI_PIN; 
+  41          
+  42          
+  43          VOID SpiInit(VOID)
+  44          {
+  45   1              baGPIOCtrl[SPI_FLASH_CS_PORT + 1] |= FLASH_CS_PIN;
+  46   1              baGPIOCtrl[FLASH_CLK_PORT + 1] |= FLASH_CLK_PIN;
+  47   1              baGPIOCtrl[FLASH_DI_PORT + 1] |= FLASH_DI_PIN;
+  48   1              baGPIOCtrl[FLASH_CS_PORT + 3] |= FLASH_CS_PIN;
+  49   1              baGPIOCtrl[FLASH_CLK_PORT + 3] |= FLASH_CLK_PIN;
+  50   1              baGPIOCtrl[FLASH_DO_PORT + 3] &= (~FLASH_DO_PIN);
+  51   1              baGPIOCtrl[FLASH_DI_PORT + 3] |= FLASH_DI_PIN;
+  52   1      }
+  53          
+C51 COMPILER V9.00   SPI_FLASH                                                             05/16/2015 15:55:49 PAGE 2   
+
+  54          
+  55          //SPI接口连续发送N个字节
+  56          VOID SpiSendNBytes(WORD SendNum, BYTE* Buffer)
+  57          {
+  58   1              WORD i;
+  59   1              BYTE* p;
+  60   1              p = Buffer;
+  61   1              
+  62   1              for(i = 0; i < SendNum; i++)
+  63   1              {
+  64   2                      SpiSendByte(*p);
+  65   2                      p++;            
+  66   2              }
+  67   1      }
+  68          
+  69          
+  70          // Brief: Send command.
+  71          VOID SPIFlashSendCMD(BYTE Cmd)
+  72          {
+  73   1              SpiFlashCsAssert();
+  74   1              SpiSendByte(Cmd);       //      instruction
+  75   1      }
+  76          
+  77          
+  78          // Brief: Write Status Register.
+  79          VOID SPIFlashSendAddr(DWORD Addr)
+  80          {
+  81   1              SpiSendByte(((BYTE*)&Addr)[1]); 
+  82   1              SpiSendByte(((BYTE*)&Addr)[2]);         
+  83   1              SpiSendByte(((BYTE*)&Addr)[3]);         
+  84   1      }
+  85          
+  86          
+  87          // Brief: Write Status Register.
+  88          //Bit7--6--5---4---3---2---1---0---
+  89          //BPL AAI BP3 BP2 BP1 BP0 WEL BUSY
+  90          VOID SPIFlashWriteReg(BYTE DataNum)
+  91          {
+  92   1              SPIFlashSendCMD(FLASH_EWSR);//GD Write enable  06
+  93   1              SpiFlashCsDeassert();
+  94   1              
+  95   1              SPIFlashSendCMD(FLASH_WRSR);
+  96   1              SpiSendByte(DataNum);
+  97   1              SpiFlashCsDeassert();
+  98   1      }
+  99          
+ 100          
+ 101          // Brief: Check the busy status.
+ 102          VOID SPIFlashWaitReady(VOID)
+ 103          {
+ 104   1              BYTE Status;
+ 105   1                      
+ 106   1              do
+ 107   1              {//wait chip ready
+ 108   2                      SPIFlashSendCMD(FLASH_RDSR);
+ 109   2                      Status = SpiRecvByte(); 
+ 110   2                      SpiFlashCsDeassert();
+ 111   2                      WaitMs(1);
+ 112   2              }
+ 113   1              while((Status & 0x01) != 0);
+ 114   1      }
+ 115          
+C51 COMPILER V9.00   SPI_FLASH                                                             05/16/2015 15:55:49 PAGE 3   
+
+ 116          
+ 117          // SST Multi-Bytes Read(High-Speed).
+ 118          VOID SSTReadNBytes(DWORD Addr, BYTE* Buffer, WORD Length)
+ 119          {
+ 120   1              WORD Temp = 0;
+ 121   1      
+ 122   1              SPIFlashSendCMD(FLASH_FAST_READ);
+ 123   1              SPIFlashSendAddr(Addr);
+ 124   1              SpiSendByte(0xFF);              //a dummy byte
+ 125   1              
+ 126   1              while(Temp < Length)
+ 127   1              {
+ 128   2                      Buffer[Temp] = SpiRecvByte();
+ 129   2                      Temp++;
+ 130   2              }
+ 131   1              
+ 132   1              SpiFlashCsDeassert();   
+ 133   1      }
+ 134          
+ 135          
+ 136          // Brief: SST Block/Chip Earse.
+ 137          // @Note: Block erase指令擦除的Block的大小与具体的Flash型号有关.
+ 138          VOID SSTErase(DWORD Addr, BYTE Cmd)
+ 139          {
+ 140   1              DBG(("->SSTErase\n"));
+ 141   1      
+ 142   1              SPIFlashWriteReg(~(BPL | BP3 | BP2 | BP1 | BP0));
+ 143   1              SPIFlashWaitReady();
+ 144   1              SPIFlashSendCMD(FLASH_WREN);
+ 145   1              SpiFlashCsDeassert();
+ 146   1              SPIFlashSendCMD(Cmd);
+ 147   1              
+ 148   1              if(Cmd != FLASH_CE)
+ 149   1              {
+ 150   2                      SPIFlashSendAddr(Addr);
+ 151   2              }
+ 152   1              
+ 153   1              SpiFlashCsDeassert();
+ 154   1      //      DBG(("SpiFlashErase,Wait\n"));
+ 155   1              SPIFlashWaitReady();
+ 156   1              DBG(("<-SSTErase\n"));
+ 157   1      }
+ 158          
+ 159          
+ 160          // Breif: SST Byte-Program
+ 161          VOID SSTByteProgram(DWORD Addr, BYTE DataNum)
+ 162          {
+ 163   1              SPIFlashSendCMD(FLASH_WREN);
+ 164   1              SpiFlashCsDeassert();
+ 165   1              
+ 166   1              SPIFlashSendCMD(FLASH_BP);
+ 167   1              SPIFlashSendAddr(Addr);
+ 168   1              SpiSendByte(DataNum);
+ 169   1              SpiFlashCsDeassert();
+ 170   1              SPIFlashWaitReady();
+ 171   1      }
+ 172          
+ 173          
+ 174          // Brief: SST Auto-Address-Increment programming.
+ 175          VOID SSTAAIProgram(DWORD Addr, BYTE* Buffer, WORD Length)
+ 176          {
+ 177   1              WORD TempCount;
+C51 COMPILER V9.00   SPI_FLASH                                                             05/16/2015 15:55:49 PAGE 4   
+
+ 178   1      
+ 179   1              if(Length == 0)
+ 180   1              {
+ 181   2                      return;
+ 182   2              }
+ 183   1              
+ 184   1              if((Addr & 0x01) != 0)
+ 185   1              {
+ 186   2                      SSTByteProgram(Addr++, *Buffer++);
+ 187   2                      Length -= 1;
+ 188   2              }
+ 189   1              
+ 190   1              SPIFlashSendCMD(FLASH_WREN);
+ 191   1              SpiFlashCsDeassert();
+ 192   1              SPIFlashSendCMD(FLASH_AAI);
+ 193   1              SPIFlashSendAddr(Addr);
+ 194   1              SpiSendByte(*Buffer++);
+ 195   1              SpiSendByte(*Buffer++);
+ 196   1              SpiFlashCsDeassert();
+ 197   1              WaitUs(1);      //wait > 10 Us or SPIFlashWaitReady();
+ 198   1              
+ 199   1              for(TempCount = (Length - 2); TempCount > 1; )
+ 200   1              {
+ 201   2                      SPIFlashSendCMD(FLASH_AAI);
+ 202   2                      SpiSendByte(*Buffer++);
+ 203   2                      SpiSendByte(*Buffer++);
+ 204   2                      SpiFlashCsDeassert();
+ 205   2                      TempCount -= 2;
+ 206   2                      WaitUs(1);                              //wait > 10 Us or SPIFlashWaitReady();
+ 207   2              }
+ 208   1              
+ 209   1              SPIFlashSendCMD(FLASH_WRDI);    // exit AAI mode
+ 210   1              SpiFlashCsDeassert();
+ 211   1              SPIFlashWaitReady();
+ 212   1              
+ 213   1              if((Length & 0x01) != 0)
+ 214   1              {
+ 215   2                      SSTByteProgram((Addr + Length - 1), *Buffer);
+ 216   2              }
+ 217   1      }
+ 218          
+ 219          
+ 220          // Brief: GD Block/Chip Earse.
+ 221          // @Note: Block erase指令擦除的Block的大小与具体的Flash型号有关.
+ 222          VOID GDFlashErase(DWORD Addr, BYTE Cmd)
+ 223          {
+ 224   1              DBG(("->GDErase\n"));
+ 225   1      
+ 226   1              SPIFlashWriteReg((~( BP2 | BP1 | BP0)) & 0x1C); 
+ 227   1              SPIFlashWaitReady();
+ 228   1      
+ 229   1              SPIFlashSendCMD(FLASH_WREN);
+ 230   1              SpiFlashCsDeassert();
+ 231   1              SPIFlashSendCMD(Cmd);   
+ 232   1              //if(Cmd != FLASH_CE)
+ 233   1              //if(Cmd != FLASH_CHIPERASE)    
+ 234   1              {
+ 235   2                      //SPIFlashSendAddr(Addr);
+ 236   2              }
+ 237   1              SpiFlashCsDeassert();
+ 238   1              //DBG(("SpiFlashErase,Wait\n"));
+ 239   1              SPIFlashWaitReady();
+C51 COMPILER V9.00   SPI_FLASH                                                             05/16/2015 15:55:49 PAGE 5   
+
+ 240   1              DBG(("<-GDErase\n"));
+ 241   1      }
+*** WARNING C280 IN LINE 222 OF SPI_FLASH\SPI_FLASH.C: 'Addr': unreferenced local variable
+ 242          
+ 243          
+ 244          //GD Multi-Bytes Read(High-Speed).
+ 245          VOID GDReadNBytes(DWORD Addr, BYTE* Buffer, WORD Length)
+ 246          {
+ 247   1              WORD Temp = 0;
+ 248   1              
+ 249   1              SPIFlashSendCMD(FLASH_FAST_READ);
+ 250   1              SPIFlashSendAddr(Addr);
+ 251   1              SpiSendByte(0xFF);      //a dummy byte
+ 252   1              
+ 253   1              while(Temp < Length)
+ 254   1              {
+ 255   2                      Buffer[Temp] = SpiRecvByte();
+ 256   2                      //DBG((" 0x%BX", (BYTE) Buffer[sTemp]));
+ 257   2                      //if(!(sTemp%16))
+ 258   2                      //DBG(("\n"));  
+ 259   2                      Temp++;
+ 260   2              }
+ 261   1              
+ 262   1              SpiFlashCsDeassert();   
+ 263   1      }
+ 264          
+ 265          
+ 266          // Breif:GD Byte-Program
+ 267          VOID GDByteProgram(DWORD Addr,  BYTE DataNum)
+ 268          {
+ 269   1              
+ 270   1      }
+*** WARNING C280 IN LINE 267 OF SPI_FLASH\SPI_FLASH.C: 'Addr': unreferenced local variable
+*** WARNING C280 IN LINE 267 OF SPI_FLASH\SPI_FLASH.C: 'DataNum': unreferenced local variable
+ 271          
+ 272          
+ 273          // Breif:GD Page-Program
+ 274          VOID GDPageProgram(DWORD Addr, BYTE* Buffer, WORD Length)
+ 275          {
+ 276   1              if((Length == 0) || (Length > MX_PP_LENGTH))
+ 277   1              {
+ 278   2                      return;
+ 279   2              }
+ 280   1              
+ 281   1              SPIFlashSendCMD(FLASH_WREN);
+ 282   1              SpiFlashCsDeassert();
+ 283   1              
+ 284   1              SPIFlashSendCMD(FLASH_PP);
+ 285   1              SPIFlashSendAddr(Addr);
+ 286   1              SpiSendNBytes(Length, Buffer);
+ 287   1              SpiFlashCsDeassert();
+ 288   1              SPIFlashWaitReady();
+ 289   1      }
+ 290          
+ 291          
+ 292          // Breif:GD & Natan Page-Program
+ 293          VOID GDMultiBytePrgm(DWORD Addr, BYTE* Buffer, WORD Length)
+ 294          {
+ 295   1              BYTE Temp;
+ 296   1              WORD Iloop;
+ 297   1              
+ 298   1              Temp = 0xFF - (BYTE)(Addr & 0x000000FF) + 1;
+C51 COMPILER V9.00   SPI_FLASH                                                             05/16/2015 15:55:49 PAGE 6   
+
+ 299   1              
+ 300   1              if(Temp != 0)
+ 301   1              {
+ 302   2                      GDPageProgram(Addr, Buffer, Temp);
+ 303   2                      Addr += Temp;
+ 304   2                      Buffer += Temp;
+ 305   2                      Length -= Temp;
+ 306   2                      DBG(("Temp%bu\n", Temp));
+ 307   2              }
+ 308   1              
+ 309   1              if(Length >= MX_PP_LENGTH)
+ 310   1              {               
+ 311   2                      for(Iloop = 0; Iloop < (Length / MX_PP_LENGTH); Iloop++)
+ 312   2                      {
+ 313   3                              GDPageProgram(Addr, Buffer, MX_PP_LENGTH);
+ 314   3                              Addr += MX_PP_LENGTH;
+ 315   3                              Buffer += MX_PP_LENGTH;
+ 316   3                              DBG(("loop%d\n", Iloop));
+ 317   3                      }
+ 318   2              }
+ 319   1              if((Length %= MX_PP_LENGTH) != 0)
+ 320   1              {
+ 321   2                      GDPageProgram(Addr, Buffer, Length);
+ 322   2                      DBG((" yusu\n"));
+ 323   2              }
+ 324   1      }
+ 325          
+ 326          
+ 327          // Brief: Read serial flash Manufacturer's ID and deviceID.
+ 328          VOID SpiFlashIdRead(VOID)
+ 329          {
+ 330   1              SERIAL_FLASH_ID IdVal;
+ 331   1      
+ 332   1              SpiFlashCsAssert();
+ 333   1              
+ 334   1              SpiSendByte(FLASH_RDID);                
+ 335   1              IdVal.Mid = SpiRecvByte();      
+ 336   1              ((BYTE *)IdVal.Did)[0] = SpiRecvByte();   //just need the manfacture's ID
+ 337   1              ((BYTE *)IdVal.Did)[1] = SpiRecvByte();
+ 338   1      
+ 339   1              SpiFlashCsDeassert();
+ 340   1      
+ 341   1              DBG(("FlashID=0x%BX\n", IdVal.Mid));
+ 342   1      
+ 343   1              SpiFlashModel = SpiFlash_None;
+ 344   1              if(IdVal.Mid == 0xEF)   //WINBOND
+ 345   1              {
+ 346   2                      SpiFlashModel = SpiFlash_WINBOND;
+ 347   2              }
+ 348   1              else if(IdVal.Mid == 0xC8)      //GD
+ 349   1              {
+ 350   2                      SpiFlashModel = SpiFlash_GD;
+ 351   2              }
+ 352   1              else if(IdVal.Mid == 0xC2)      //MX
+ 353   1              {
+ 354   2                      SpiFlashModel = SpiFlash_MX;
+ 355   2              }
+ 356   1              else if(IdVal.Mid == 0xBF)      //sst
+ 357   1              {
+ 358   2                      SpiFlashModel = SpiFlash_SST;
+ 359   2              }
+ 360   1              else
+C51 COMPILER V9.00   SPI_FLASH                                                             05/16/2015 15:55:49 PAGE 7   
+
+ 361   1              {
+ 362   2                      DBG(("unsupport spi dev!\n"));
+ 363   2              }
+ 364   1      }
+ 365          
+ 366          
+ 367          // Brief: Inital SPI device structure.
+ 368          VOID SpiFlashInit(VOID)
+ 369          {
+ 370   1              SetGpioRegBit((SPI_FLASH_CS_PORT+3), SPI_FLASH_CS_PIN);         //CS OE Output
+ 371   1              SpiInit();
+ 372   1              SpiFlashModel = SpiFlash_None;  
+ 373   1      //      SpiFlashCsDeassert();
+ 374   1      
+ 375   1              SpiFlashIdRead();
+ 376   1      
+ 377   1              if(SpiFlashModel == SpiFlash_None)
+ 378   1              {
+ 379   2                      DBG(("unsupport spi dev!\n"));
+ 380   2              }
+ 381   1              else if(SpiFlash_GD == SpiFlashModel)
+ 382   1              {
+ 383   2                      SPIFlashWriteReg((BP2 | BP1 | BP0)); 
+ 384   2                      SPIFlashWaitReady();
+ 385   2              }
+ 386   1      }
+ 387          
+ 388          
+ 389          // Brief: Block/Chip Earse.
+ 390          // @Note: Block erase指令擦除的Block的大小与具体的Flash型号有关.
+ 391          VOID SpiFlashErase(VOID)
+ 392          {
+ 393   1              DBG(("->SpiFlashErase\n"));
+ 394   1              if (SpiFlashModel == SpiFlash_SST)
+ 395   1              {
+ 396   2                      SSTErase(0, FLASH_CE);
+ 397   2              }
+ 398   1      //      else if(SpiFlashModel == SpiFlash_WINBOND)
+ 399   1              else if(SpiFlashModel == SpiFlash_GD)   //GD
+ 400   1              {
+ 401   2                      GDFlashErase(0, FLASH_CE);
+ 402   2              }
+ 403   1      //      else if(SpiFlashModel == SpiFlash_MX)   //MX
+ 404   1      //      else
+ 405   1      
+ 406   1              DBG(("<-SpiFlashErase\n"));
+ 407   1      }
+ 408          
+ 409          
+ 410          // Brief: Read block from SPI flash Device
+ 411          VOID SpiFlashBlkRd(DWORD StartAddr, BYTE* Buffer, WORD Length)
+ 412          {
+ 413   1              //DBG(("->SpiFlashBlkRd\n"));
+ 414   1              if((Buffer == NULL) || (Length == 0))
+ 415   1              {
+ 416   2                      return;
+ 417   2              }
+ 418   1      
+ 419   1              if((WORD)Buffer >= DMA_XBUF_START)
+ 420   1              {
+ 421   2                      if(Length % 4)
+ 422   2                      {// align to quatuor-bytes
+C51 COMPILER V9.00   SPI_FLASH                                                             05/16/2015 15:55:49 PAGE 8   
+
+ 423   3                              Length += (4 - (Length % 4));   
+ 424   3                      }
+ 425   2              }
+ 426   1              
+ 427   1              if (SpiFlashModel == SpiFlash_SST)
+ 428   1              {
+ 429   2                      SSTReadNBytes(StartAddr, Buffer, Length);               
+ 430   2              }
+ 431   1      //      else if(SpiFlashModel == SpiFlash_WINBOND)
+ 432   1              else if(SpiFlashModel == SpiFlash_GD)   //GD
+ 433   1              {
+ 434   2                      GDReadNBytes(StartAddr, Buffer, Length);                        
+ 435   2              }
+ 436   1      //      else if(SpiFlashModel == SpiFlash_MX)   //MX
+ 437   1      //      else
+ 438   1      
+ 439   1              if((WORD)Buffer >= DMA_XBUF_START)
+ 440   1              {
+ 441   2                      //ReleaseREQ();
+ 442   2              }
+ 443   1      
+ 444   1              //DBG(("<-SpiFlashBlkRd\n"));
+ 445   1      }
+ 446          
+ 447          
+ 448          // Brief: Multi-Bytes Program.
+ 449          VOID SPIFlashMultiBytePrgm(DWORD Addr, BYTE* Buffer, WORD Length)
+ 450          {
+ 451   1              if (SpiFlashModel == SpiFlash_SST)
+ 452   1              {
+ 453   2                      SSTAAIProgram(Addr, Buffer, Length);    
+ 454   2              }
+ 455   1      //      else if(SpiFlashModel == SpiFlash_WINBOND)
+ 456   1              else if(SpiFlashModel == SpiFlash_GD) //GD
+ 457   1              {
+ 458   2                      DBG(("->GDPageProgram\n"));
+ 459   2                      GDMultiBytePrgm(Addr, Buffer, Length);                  
+ 460   2              }
+ 461   1      //      else if(SpiFlashModel == SpiFlash_MX)   //MX
+ 462   1      //      else    
+ 463   1      }
+ 464          
+ 465          
+ 466          #endif  //#ifdef FUNC_SPI_FLASH_EN
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1834    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      2     108
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  3 WARNING(S),  0 ERROR(S)

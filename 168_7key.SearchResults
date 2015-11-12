@@ -1,0 +1,7 @@
+---- MSG_IR_ON_OFF Matches (7 in 4 files) ----
+Adc_key.c (key):	{MSG_IR_ON_OFF,	MSG_IR_ON_OFF,	MSG_NONE,		MSG_NONE	},	//SW4
+Ir_key.c (key):	{MSG_MODE_SW,			MSG_IR_ON_OFF,		MSG_NONE,					MSG_NONE	},	//SW3
+Key.c (key):		if(!IrIsOn && (Event != MSG_IR_ON_OFF))
+Key.c (key):		if(Event == MSG_IR_ON_OFF)
+Key.c (key):		if(Event != MSG_IR_ON_OFF && Event != MSG_NONE && Event != MSG_VOL_ADD && Event != MSG_VOL_SUB)
+Message.h (system):	MSG_IR_ON_OFF,

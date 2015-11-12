@@ -1,0 +1,481 @@
+C51 COMPILER V9.00   SYS_ON_OFF                                                            05/16/2015 15:55:48 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SYS_ON_OFF
+OBJECT MODULE PLACED IN .\output\obj\sys_on_off.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE system\sys_on_off.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR
+                    -(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;
+                    -.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\sys_on_off.lst) OBJECT(.\output\obj\sys_on_off.obj)
+
+line level    source
+
+   1          #include "syscfg.h"
+   2          #include "key.h"
+   3          #include "utility.h"
+   4          #include "user_interface.h"
+   5          #include "power.h"
+   6          #include "chip.h"
+   7          #include "ir.h"
+   8          #include "radio_ctrl.h"
+   9          #include "debug.h"
+  10          #include "display.h"
+  11          #include "bluetooth_ctrl.h"
+  12          #include "npca110x.h"
+  13          
+  14          
+  15          BYTE XDATA gWakeupTrigFlg _at_ 0x06D8; //²»ÒªÇáÒ×¸Ä¶¯µØÖ·
+  16          
+  17          
+  18          //ÏµÍ³Æô¶¯£¬°üÀ¨ÏµÍ³´ÓSLEEP×´Ì¬ÏÂ»½ÐÑÆô¶¯»òÕß´ÓPOWER DOWN×´Ì¬ÏÂÒÔÆ¬ÄÚÖ÷µçÔ´ÉÏµç·½Ê½Æô¶¯µÄÏà¹Ø´¦Àí
+  19          //Ò»°ãÇé¿öÏÂ£¬2ÖÖÆô¶¯·½Ê½ÔÚÓÃ»§²úÆ·ÖÐ²»»áÍ¬Ê±´æÔÚ
+  20          VOID SystemOn(VOID)
+  21          {
+  22   1              TIMER   WaitTimer;
+  23   1      
+  24   1              DBG1(("*******SystemOn************\n"));
+  25   1              
+  26   1      
+  27   1      #if (POWER_SAVING_MODE_OPTION == POWER_SAVING_MODE_SLEEP)
+  28   1              
+  29   1              //»ñµÃ´ÓSLEEP×´Ì¬»½ÐÑµÄ´¥·¢Ô´±êÖ¾
+  30   1              DBG1((">>WakeUpOp(), gWakeupTrigFlg:%bx\n", gWakeupTrigFlg));
+  31   1      
+  32   1              //ÏµÍ³¶¨ÒåÁËIR»½ÐÑ¹¦ÄÜ£¬IR½ÓÊÕÍ·Á¬½ÓÓÚGPIOB6/GPIOE0£¬IRÐÅºÅ»½ÐÑÏµÍ³ºó£¬ÔòÅÐ¶Ï¼üÖµ
+  33   1      #ifdef  WIS_FLG_IR
+  34   1              if((gWakeupTrigFlg == WIS_FLG_GPB6) || (gWakeupTrigFlg == WIS_FLG_GPE0))
+  35   1              {               
+  36   2                      DWORD IrKeyData;
+  37   2                      
+  38   2      
+  39   2                      TimeOutSet(&WaitTimer, 3500);
+  40   2                      //Èç¹ûÔÚ¹æ¶¨Ê±¼äÄÚÎ´·¢ÏÖÔ¤¶¨µÄIR¼üÖµ£¬Ôò¼ÌÐøË¯Ãß
+  41   2                      while(!IsTimeOut(&WaitTimer))   
+  42   2                      {
+  43   3      #ifdef FUNC_WATCHDOG_EN
+  44   3                              FeedWatchDog();
+  45   3      #endif
+  46   3                              IrKeyData = IrKeyDataVal();
+  47   3                              DBG1(("IrKeyData = : %08LX\n", IrKeyData)); 
+  48   3      
+  49   3                              //Èç¹û¼ì²âµ½Ô¤¶¨µÄIR¼üÖµ£¬Ôò¿ªÊ¼ÔËÐÐÏµÍ³
+  50   3                              if( (IrKeyData == 0x5AA57F80) ||
+  51   3                                      (IrKeyData == 0x5FA07F80) ||
+  52   3                                      (IrKeyData == 0x5EA17F80) ||
+  53   3                                      (IrKeyData == 0x5DA27F80) ||
+C51 COMPILER V9.00   SYS_ON_OFF                                                            05/16/2015 15:55:48 PAGE 2   
+
+  54   3                                      (IrKeyData == 0x5CA37F80) ||
+  55   3                                      (IrKeyData == 0x59A67F80) ||
+  56   3                                      (IrKeyData == 0x5BA47F80) )
+  57   3                              {
+  58   4                                      MessageInit();
+  59   4                                      DBG1(("WAKE UP FROM SLEEP BY IR!\n"));
+  60   4                                      baGPIOCtrl[GPIO_A_IE] &= ~0x40;//A2
+  61   4                                      return;
+  62   4                              }
+  63   3                              else
+  64   3                              {
+  65   4                                      DBG1(("ERROR IR KEY!\n"));
+  66   4                                      break;
+  67   4                              }
+  68   3                      }
+  69   2                      
+  70   2                      DBG1(("TIMEOUT!\n"));
+  71   2      #ifdef IR_KEY_PORT
+  72   2                      if(IR_KEY_PORT == IR_INPUT_GPIOB6)
+  73   2                      {
+  74   3                              SetWakeupSrcInSleep(WIS_GPB6_LOW);
+  75   3                              DBG1(("*GPIO_B_IN:%bx\n", GetGpioReg(GPIO_B_IN)));
+  76   3                              while((GetGpioReg(GPIO_B_IN) & 0x40) != 0x40)
+  77   3                              {
+  78   4                                      DBG1(("ÇëÈ·±£½øÈëSleep×´Ì¬Ç°WakeUpÌõ¼þ²»³ÉÁ¢£¡(GPIO_C_IN:%bx(GPIOC3 shoule be 0))\n", GetGpioReg(GPIO_
+             -B_IN)));
+  79   4                                      WaitMs(10);
+  80   4      #ifdef FUNC_WATCHDOG_EN
+  81   4                                      FeedWatchDog();
+  82   4      #endif
+  83   4                              }
+  84   3                      }
+  85   2                      else if(IR_KEY_PORT == IR_INPUT_GPIOE0)
+  86   2                      {
+  87   3                              SetWakeupSrcInSleep(WIS_GPE0_LOW);
+  88   3                              DBG(("*GPIO_E_IN:%bx\n", GetGpioReg(GPIO_E_IN)));
+  89   3                              while((GetGpioReg(GPIO_E_IN) & 0x01) != 0x01)
+  90   3                              {
+  91   4                                      DBG1(("ÇëÈ·±£½øÈëSleep×´Ì¬Ç°WakeUpÌõ¼þ²»³ÉÁ¢£¡(GPIO_C_IN:%bx(GPIOC3 shoule be 0))\n", GetGpioReg(GPIO_
+             -B_IN)));
+  92   4                                      WaitMs(10);
+  93   4      #ifdef FUNC_WATCHDOG_EN
+  94   4                              FeedWatchDog();
+  95   4      #endif
+  96   4                              }
+  97   3                      }
+  98   2      #endif
+  99   2      
+ 100   2                      GoToSleepMode(SLEEP_MOD_OTP_PD);
+ 101   2      
+ 102   2                      DBG1(("<<WakeUpOp()\n")); 
+ 103   2                      return;
+ 104   2              }
+ 105   1      
+ 106   1              
+ 107   1      #endif
+ 108   1              
+ 109   1      
+ 110   1      #elif (POWER_SAVING_MODE_OPTION == POWER_SAVING_MODE_POWERDOWN)
+              #if     (PWR_KEY_MODE == PWR_KEY_PUSH_BUTTON)
+                      DBG(("\nPWR_KEY_PUSH_BUTTON\n\n"));     
+                      SetChip8SRstMode(CRM_IN_PUSH_BUTTON);
+C51 COMPILER V9.00   SYS_ON_OFF                                                            05/16/2015 15:55:48 PAGE 3   
+
+              
+              #elif(PWR_KEY_MODE == PWR_KEY_SLIDE_SWITCH)
+                      DBG(("\nPWR_KEY_SLIDE_SWITCH\n\n"));    
+                      SetChip8SRstMode(CRM_IN_SLIDE_SWITCH);
+              #endif
+              
+                      gWakeupTrigFlg = GetWakeupFlgFromPD();                  //»ñµÃ´Ópowerdown×´Ì¬´¥·¢Æ¬ÄÚÖ÷µçÔ´ÉÏµçÏµÍ³Æô¶¯µÄ´¥·¢Ô´±êÖ¾
+                      DBG(("gWakeupTrigFlg:%bx\n", gWakeupTrigFlg));
+              
+                      if(WIP_SRC_PWR_KEY & gWakeupTrigFlg)
+                      {
+                              DBG(("POWER KEY SYS ON\n"));
+                      }
+                      else if(WIP_SRC_LP_RTC & gWakeupTrigFlg)
+                      {
+                              DBG(("LP_RTC SYS ON\n"));
+                      }
+              
+                      //Èç¹ûPOWER_KEYÊ¹ÓÃÈí¿ª¹Ø(push button)£¬²¢ÇÒ¶¨ÒåÁËPOWER KEY¿ª¹Ø»ú±£³ÖÊ±¼ä
+                      //ÀýÈç£¬ÒªÇó°´×¡POWER_KEY³¬¹ý2Ãëºó£¬ÏµÍ³²Å»áµãÁÁÏÔÊ¾¼ÌÐøÔËÐÐ£¬·ñÔòÏµÍ³ÔÙ´Î¹Ø±Õ£¬ÓÃ»§²»»á¸Ð¾õµ½ÏµÍ³ÔËÐÐ¹ý
+                      //POWER_KEY³ÖÐø°´ÏÂÁË¹æ¶¨Ê±¼äµÄÅÐ¶¨ÊÇÔÚpower_key.cÄÚÍê³ÉµÄ¡£
+              #if     ((PWR_KEY_MODE == PWR_KEY_PUSH_BUTTON) && defined(TIME_POWER_ON_HOLD))  
+                      if(WIP_SRC_PWR_KEY & gWakeupTrigFlg)            //±ØÐëÊÇPOWER_KEY»½ÐÑÏµÍ³Ê±£¬²Å¼ì²é¿ª»ú±£³ÖÊ±¼ä£¬¶øWTD¸´Î»µÈÏµÍ³ÖØÐ
+             -ÂÆô¶¯Ôò²»ÐèÒª
+                      {
+                              TimeOutSet(&WaitTimer, (TIME_POWER_ON_HOLD * 2));
+                              
+                              while(!IsTimeOut(&WaitTimer))
+                              {
+              #ifdef FUNC_WATCHDOG_EN
+                                      FeedWatchDog();
+              #endif
+                                      KeyEventGet();  
+              
+                                      if(MessageGet(MSG_FIFO_KEY) == MSG_SYS_ON)              //Èç¹û´ïµ½¿ª»ú±£³ÖÊ±¼ä£¬ÔòÏµÍ³¼ÌÐøÔËÐÐ
+                                      {                       
+                                              MessageInit();
+                                              DBG(("POWER_KEY Hold time,MSG_SYS_ON\n"));
+                                              return;
+                                      }
+                              }
+                              
+                              DBG(("TIMEOUT!\n"));
+                              //Èç¹ûÔÚ¹æ¶¨Ê±¼äÄÚÃ»ÓÐÊÕµ½ÓÉpower_key.cÍÆËÍµÄMSG_SYS_ONÏûÏ¢£¬ÐèÒªÔÙ´ÎÏµÍ³¹Ø±Õ¡£
+                              GoToPDMode();
+                      }
+              
+              #elif(PWR_KEY_MODE == PWR_KEY_SLIDE_SWITCH)
+                      DBG(("\nPWR_KEY_MODE == PWR_KEY_SLIDE_SWITCH\n\n"));    
+              #endif          
+                              
+              #endif
+ 165   1      }
+ 166          
+ 167          
+ 168          //ÏµÍ³¹Ø±Õ£¬°üÀ¨ÏµÍ³ÒÔSLEEP·½Ê½¹Ø±Õ»òÕßÒÔÆ¬ÄÚÖ÷µçÔ´ÏÂµçPOWER DOWN·½Ê½¹Ø±ÕµÄÏà¹Ø´¦Àí
+ 169          VOID SystemOff(VOID)
+ 170          {
+ 171   1      #if (POWER_SAVING_MODE_OPTION == POWER_SAVING_MODE_SLEEP)
+ 172   1              //ÐÝÃß£¬½øÈëSLEEPÄ£Ê½
+ 173   1              DBG(("SLEEP!\n"));
+ 174   1      #ifdef FUNC_DISP_EN
+C51 COMPILER V9.00   SYS_ON_OFF                                                            05/16/2015 15:55:48 PAGE 4   
+
+ 175   1              DispDeInit();
+ 176   1      #endif
+ 177   1      
+ 178   1      #ifdef FUNC_RADIO_EN
+                      if(gSys.SystemMode == SYS_MODE_RADIO)
+                      {
+                              RadioCtrlDeinit();
+                      }
+              #endif
+ 184   1      
+ 185   1              MuteOn(FALSE, TRUE);
+ 186   1              //NPCA110X_SetOutMute(TRUE);
+ 187   1              InDacChannelSel(DAC_CH_NONE);
+ 188   1              InDacPowerDown(FALSE);
+ 189   1      
+ 190   1              //ºìÍâ»½ÐÑÔ´Ñ¡ÔñÊ±ÐèÒª×¢ÒâÑ¡ÔñµÄGPIO¶Ë¿Ú
+ 191   1              SetWakeupSrcInSleep(WIS_GPB6_LOW);
+ 192   1              //SetWakeupSrcInSleep(WIS_GPD7_HIGH);
+ 193   1              //SetWakeupSrcInSleep(WIS_GPE0_LOW);
+ 194   1              //SetWakeupSrcInSleep(WIS_GPE1_HIGH);
+ 195   1              //SetWakeupSrcInSleep(WIS_RTC_ALARM);
+ 196   1              //SetWakeupSrcInSleep(WIS_PWR_KEY); 
+ 197   1              GoToSleepMode(SLEEP_MOD_OTP_PD);
+ 198   1              //GoToSleepMode(SLEEP_MOD_NORMAL);
+ 199   1              return;
+ 200   1      
+ 201   1      #elif (POWER_SAVING_MODE_OPTION == POWER_SAVING_MODE_POWERDOWN)
+              
+              #if(PWR_KEY_MODE == PWR_KEY_PUSH_BUTTON) //POWER_KEYÎª°´Å¥¿ª¹Ø£¨Èí¿ª¹Ø£©
+                      DBG(("\nSYSTEM OFF BY PUSH BUTTON!\n\n"));
+              
+              #ifdef  FUNC_ALARM_EN
+                      SetWakeupLpRtcInPD(); // RTCÄÖÖÓ»½ÐÑÊ¹ÄÜ
+              #endif
+              
+              #elif(PWR_KEY_MODE == PWR_KEY_SLIDE_SWITCH)
+                              DBG(("\nSYSTEM OFF BY SLID SWITCH!\n\n"));      
+              #endif
+                      
+              #ifdef FUNC_DISP_EN
+                      DispDeInit();
+              #endif
+              
+                      MuteOn(FALSE, TRUE);
+              //Ö´ÐÐInDacMuteEn¡¢InDacChannelSelºÍInDacPowerDown ¹²800ms×óÓÒ£¬Ôì³É¹Ø»úºó²»ÄÜ¿ìËÙ°´¼ü¿ª»ú
+              //ÆÁ±ÎÕâ²¿·Ö´úÂëºó¿ÉÄÜµ¼ÖÂ¿ìËÙ¿ª»ú»áÓÐPOPÉù
+              //      InDacChannelSel(DAC_CH_NONE);
+              //      InDacPowerDown(FALSE);
+                      
+                      GoToPDMode();   
+              #endif
+ 226   1      }
+ 227          
+ 228          
+ 229          #ifdef FUN_SYSTEM_POWEROFF_WAIT_TIME
+              SystemTimingOff gSysTimeOffState;
+              
+              
+              VOID SystemOffTimeInit(VOID)
+              {
+                      gSysTimeOffState.ProState = SYS_OFF_TIMEING_IDLE;
+                      gSysTimeOffState.EnState = FALSE;
+C51 COMPILER V9.00   SYS_ON_OFF                                                            05/16/2015 15:55:48 PAGE 5   
+
+                      gSysTimeOffState.SleepState = SLEEP_00;
+              }
+              
+              
+              static VOID SystemOffSetTimer(VOID)
+              {
+                      DWORD SysOffWaitTime;
+              
+                      switch(gSysTimeOffState.SleepState)
+                      {       
+                              case SLEEP_15:
+                                      SysOffWaitTime = 900000;
+                                      break;
+                                      
+                              case SLEEP_30:
+                                      SysOffWaitTime = 1800000;
+                                      break;
+              
+                              case SLEEP_45:
+                                      SysOffWaitTime = 2700000;
+                                      break;
+                                      
+                              case SLEEP_60:
+                                      SysOffWaitTime = 3600000;
+                                      break;
+                                      
+                              case SLEEP_75:
+                                      SysOffWaitTime = 4500000;
+                                      break;  
+                                      
+                              case SLEEP_90:
+                                      SysOffWaitTime = 5400000;
+                                      break;
+              
+                              case SLEEP_105:
+                                      SysOffWaitTime = 6300000;
+                                      break;
+                                      
+                              case SLEEP_120:
+                                      SysOffWaitTime = 7200000;
+                                      break;
+                                      
+                              default:
+                                      break;
+                      }
+                      
+                      TimeOutSet(&gSysTimeOffState.AutoOutTimer, SysOffWaitTime);     
+                      DBG(("Start....                                          %2BX\n",gSysTimeOffState.SleepState));
+              }
+              
+              
+              VOID SystemOffTimeEnDis(BYTE Type)
+              {
+                      TimeOutSet(&gSysTimeOffState.DisTimer, 3000);
+                              
+                      if(SYSOFF_TIME_SET_VALUE == Type)
+                      {
+                              if(gSysTimeOffState.EnState == FALSE)
+                              {
+                                      gSysTimeOffState.EnState = TRUE;                                
+                                      gSysTimeOffState.ProState = SYS_OFF_TIMEING_SET_MODE_VALID;     
+                                      SystemOffSetTimer();
+C51 COMPILER V9.00   SYS_ON_OFF                                                            05/16/2015 15:55:48 PAGE 6   
+
+                              }
+                              else
+                              {                               
+                                      gSysTimeOffState.EnState = FALSE;               
+                                      gSysTimeOffState.ProState = SYS_OFF_TIMEING_SET_DIS;
+                              }       
+                      }
+                      else if(SYSOFF_TIME_READ_ONLY == Type)
+                      {               
+                              if((gSysTimeOffState.ProState == SYS_OFF_TIMEING_WAIT_POWEROFF) || (gSysTimeOffState.ProState == SYS_OFF
+             -_TIMEING_SET_MODE_VALID))                     
+                              {
+                                      gSysTimeOffState.ProState = SYS_OFF_TIMEING_READ_ONLY_TIMING;//»Øµ½¶¨Ê±¹Ø»ú»òÉèÖÃ¶¨Ê±¹Ø»ú×´Ì¬
+                              }       
+                              else
+                              {
+                                      gSysTimeOffState.ProState = SYS_OFF_TIMEING_READ_ONLY_IDLE;//»Øµ½¿ÕÏÐ×´Ì¬               
+                              }
+                      }
+              }
+              
+              
+              VOID SystemOffTimeSet(VOID)
+              {                               
+                      TimeOutSet(&gSysTimeOffState.DisTimer, 3000);   
+              
+                      gSysTimeOffState.SleepState++;
+                      if(gSysTimeOffState.SleepState >= SLEEP_MAX)
+                      {
+                              gSysTimeOffState.SleepState = SLEEP_00;
+                      }       
+                      gSysTimeOffState.ProState = SYS_OFF_TIMEING_SET_MODE_VALID;     
+                      
+                      if(gSysTimeOffState.SleepState != SLEEP_00)
+                      {
+                              gSysTimeOffState.EnState = TRUE;
+                              SystemOffSetTimer();
+                      }
+                      else
+                      {
+                              gSysTimeOffState.EnState = FALSE;
+                      }       
+              
+              //      if(gSysTimeOffState.EnState == TRUE)
+              //      {
+              //              gSysTimeOffState.SleepState++;
+              //              if(gSysTimeOffState.SleepState >= SLEEP_MAX)
+              //              {
+              //                      gSysTimeOffState.SleepState = SLEEP_00;
+              //              }       
+              //              SystemOffSetTimer();
+              //              gSysTimeOffState.ProState = SYS_OFF_TIMEING_SET_MODE_VALID;     
+              //      }
+              //      else
+              //      {
+              //              gSysTimeOffState.ProState  = SYS_OFF_TIMEING_SET_MODE_INVALID;
+              //      }
+              }
+              
+              
+              //Èç¹ûÓÐºÍ´Ëº¯ÊýÀàËÆÓÃ·¨(Ç¶Èëµ½¸÷¸öÄ£Ê½)µÄº¯ÊýÎ»ÓÚÆäºó£¬´Ëº¯Êý²»ÒªÓÐdefault£¬·ÀÖ¹À¹½ØºóÕßÓÐÓÃµÄÏûÏ¢
+              VOID SystemOffTimeMsgPro(BYTE Msg)
+C51 COMPILER V9.00   SYS_ON_OFF                                                            05/16/2015 15:55:48 PAGE 7   
+
+              {       
+                      if(Msg != MSG_NONE)
+                      {
+                              TimeOutSet(&gSysTimeOffState.DisTimer, 0);      
+                      }
+                      
+                      switch(Msg)
+                      {
+                              case MSG_SLEEP:
+                                      SystemOffTimeSet();
+                                      break;          
+                                      
+              //              case MSG_SYS_TIMING_EN:
+              //                      SystemOffTimeEnDis(SYSOFF_TIME_SET_VALUE);
+              //                      break;
+              
+              //              case MSG_SYS_TIMING_SET:
+              //                      SystemOffTimeSet();
+              //                      break;
+              
+              //              case MSG_SYS_TIMING_READ:       
+              //                      SystemOffTimeEnDis(SYSOFF_TIME_READ_ONLY);
+              //                      break;          
+              
+                              default:
+                                      break;
+                      }
+              }
+              
+              
+              VOID SystemOffTimeWait(VOID)
+              {
+                      switch(gSysTimeOffState.ProState)
+                      {
+                              case SYS_OFF_TIMEING_IDLE:
+                                      break;
+              
+                              case SYS_OFF_TIMEING_READ_ONLY_IDLE:
+                              case SYS_OFF_TIMEING_READ_ONLY_TIMING:
+                              case SYS_OFF_TIMEING_SET_DIS:
+                              case SYS_OFF_TIMEING_SET_MODE_VALID:
+                              case SYS_OFF_TIMEING_SET_MODE_INVALID:
+                                      if(IsTimeOut(&gSysTimeOffState.DisTimer))
+                                      {
+                                              if((gSysTimeOffState.ProState == SYS_OFF_TIMEING_SET_MODE_VALID) || (gSysTimeOffState.ProState == SYS_
+             -OFF_TIMEING_READ_ONLY_TIMING))
+                                              {
+                                                      gSysTimeOffState.ProState = SYS_OFF_TIMEING_WAIT_POWEROFF;
+                                              }
+                                              else
+                                              {
+                                                      gSysTimeOffState.ProState = SYS_OFF_TIMEING_IDLE;
+                                              }
+                                      }
+                                      break;
+              
+                              case SYS_OFF_TIMEING_WAIT_POWEROFF:
+                                      if(IsTimeOut(&gSysTimeOffState.AutoOutTimer))
+                                      {
+                                              if(gSysTimeOffState.EnState == TRUE)
+                                              {
+                                                      DBG(("SYSTEM OFF BY TimeOut!\n"));
+C51 COMPILER V9.00   SYS_ON_OFF                                                            05/16/2015 15:55:48 PAGE 8   
+
+                                                      SystemOff();
+                                              }
+                                      }
+                                      break;
+                                      
+                              default:
+                                      break;                                  
+                      }
+              }
+              
+              #endif
+ 432          
+ 433          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    307    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       9
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

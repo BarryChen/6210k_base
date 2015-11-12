@@ -1,0 +1,408 @@
+C51 COMPILER V9.00   SYSCTRL                                                               05/16/2015 15:55:47 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SYSCTRL
+OBJECT MODULE PLACED IN .\output\obj\sysctrl.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE system\sysctrl.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(.\
+                    -config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\b
+                    -luetooth;.\i2c) DEBUG PRINT(.\output\lst\sysctrl.lst) OBJECT(.\output\obj\sysctrl.obj)
+
+line level    source
+
+   1          #include "syscfg.h"
+   2          #include "sysctrl.h"
+   3          #include "usb_audio_ctrl.h"
+   4          #include "card_reader_ctrl.h"
+   5          #include "devctrl.h"
+   6          #include "playctrl.h"
+   7          #include "device.h"
+   8          #include "rtc_ctrl.h"
+   9          #include "breakpoint.h"
+  10          #include "linein_ctrl.h"
+  11          #include "interrupt.h"
+  12          #include "power_key.h"
+  13          #include "key.h"
+  14          #include "i2c.h"
+  15          #include "sleep.h"
+  16          #include "sys_on_off.h"
+  17          #include "power_monitor.h"
+  18          #include "host_stor_scsi.h"
+  19          #include "host_hcd.h"
+  20          #include "chip.h"
+  21          #include "uart.h"
+  22          #include "radio_app_interface.h"
+  23          #include "radio_ctrl.h"
+  24          #include "debug.h"
+  25          #include "sleep.h"
+  26          #include "gpio.h"
+  27          #include "display.h"
+  28          #include "ir.h"
+  29          #include "user_interface.h"
+  30          #include "pwm.h"
+  31          #include "spi_flash.h"
+  32          #include "spi_fs.h"
+  33          #include "touch_key.h"
+  34          #include "bluetooth_ctrl.h"
+  35          #include "slave_ctrl.h"
+  36          #include "bt.h"
+  37          #include "npca110x.h"
+  38          
+  39          #ifdef FUNC_EXDAC_EN
+              extern VOID UseAsSlaveDecd(VOID);
+              extern VOID UseAsSlaveDAC(VOID);
+              extern VOID UseAsMasterDac(VOID);
+              #endif
+  44          #ifdef FUNC_NPCA110X_EN
+              extern BOOL isDefaultBass;
+              #endif
+  47          
+  48          SYSTEM  gSys;
+  49          
+  50          
+  51          
+  52          BYTE GetBPSize(VOID)
+  53          {
+C51 COMPILER V9.00   SYSCTRL                                                               05/16/2015 15:55:47 PAGE 2   
+
+  54   1      #ifdef FUNC_BREAK_POINT_EN
+  55   1              return sizeof(BP_INFO);
+  56   1      #else
+                      return 0;
+              #endif
+  59   1      }
+  60          
+  61          
+  62          //IP_X.0 for INT0, 
+  63          //IP_X.1 for T0, 
+  64          //IP_X.2 for INT1, 
+  65          //IP_X.3 for T1, 
+  66          //IP_X.4 for SP
+  67          sfr IP_X = 0xA9;
+  68          
+  69          // System tick (1ms) initilization.
+  70          VOID SysTickInit(VOID)
+  71          {
+  72   1              gSysTick = 0;
+  73   1      
+  74   1              //配置为8位自动重装载模式
+  75   1              ET0 = 0;        
+  76   1              TR0 = 0;        
+  77   1              TMOD &= 0xf0;   
+  78   1              TMOD |= 0x02;                                                                           //using Timer0 as tick base     
+  79   1              TimerCountSet(1);       
+  80   1              PT0 = 1;                                                                                        //high priority
+  81   1              ET0 = 1;                                                                                        //enable Timer0 int
+  82   1              TR0 = 1;   
+  83   1              IP_X |= 0x02;
+  84   1      //      EA = 1;                                                                                 //run Timer0
+  85   1      }
+  86          
+  87          
+  88          // Oriole Series Chip example main function, add you code.
+  89          VOID main()
+  90          {
+  91   1      #ifdef FUNC_SAVE_PLAYTIME_EN
+                      BYTE TempVal;
+              #endif
+  94   1      
+  95   1              ChipInit();
+  96   1      
+  97   1      #ifdef FUNC_BLUETOOTH_EN
+              //先拉低所有蓝牙口的电平，以便之后做蓝牙操作
+                      BT_NEXT_L();
+                      BT_PREV_L();
+                      BT_PLAY_L();
+                      BT_POWER_L();
+              #endif
+ 104   1      
+ 105   1      
+ 106   1              ModuleClkEn(MASK_ALL_CLOCK);
+ 107   1              
+ 108   1      #ifndef FUNC_WATCHDOG_EN
+                      WatchDogDis();
+              #else
+ 111   1              WatchDogEn();
+ 112   1              FeedWatchDog();
+ 113   1      #endif
+ 114   1              
+ 115   1      #if (defined(FUNC_USB_EN) || defined (FUNC_AUDIO_EN) \ 
+C51 COMPILER V9.00   SYSCTRL                                                               05/16/2015 15:55:47 PAGE 3   
+
+ 116   1              || defined(FUNC_READER_EN) || defined (FUNC_AUDIO_READER_EN))
+ 117   1              IsUsbIOUseToGpio = FALSE;
+ 118   1      #endif
+ 119   1              
+ 120   1              ClockSwitchToDPLL(); //add for O20 
+ 121   1              SysTickInit();  
+ 122   1      #if (defined(FUNC_TIMER1_REFRESH_LED_EN) || defined(FUNC_TOUCH_KEY_EN))
+                      Timer1Init();
+              #endif
+ 125   1          EA = 1;
+ 126   1              ExInt1Init();
+ 127   1      
+ 128   1      #ifdef FUNC_UARTDBG_EN
+                      I51UartOpen(UART_BAUDRATE, UART_PORT);
+              #endif
+ 131   1      /*#ifdef FUNC_SLAVE_UART_EN
+ 132   1              SlaveCtrlInit();
+ 133   1      #endif*/
+ 134   1              
+ 135   1      
+ 136   1              baGPIOCtrl[GPIO_A_IE] |= 0x40;//A2
+ 137   1              baGPIOCtrl[GPIO_A_OE] &= ~0x40;
+ 138   1              baGPIOCtrl[GPIO_A_PU] |= 0x40;
+ 139   1              baGPIOCtrl[GPIO_A_PD] |= 0x40; 
+ 140   1              baGPIOCtrl[GPIO_A_OUT] &= ~0x40; //A2
+ 141   1              WaitMs(2);
+ 142   1      
+ 143   1              DBG1(("******* Welcome to use MVsilicon's chip! *******\n"));
+ 144   1      
+ 145   1              KeyScanInit();
+ 146   1      
+ 147   1              MessageInit();
+ 148   1      
+ 149   1      #if ((POWER_SAVING_MODE_OPTION == POWER_SAVING_MODE_SLEEP) \ 
+ 150   1              || (POWER_SAVING_MODE_OPTION == POWER_SAVING_MODE_POWERDOWN)) 
+ 151   1              SystemOn();
+ 152   1      #endif
+ 153   1              baGPIOCtrl[GPIO_A_IE] &= ~0x40;//A2
+ 154   1              baGPIOCtrl[GPIO_A_OE] |= 0x40;
+ 155   1              baGPIOCtrl[GPIO_A_PU] |= 0x40;
+ 156   1              baGPIOCtrl[GPIO_A_PD] |= 0x40; 
+ 157   1              baGPIOCtrl[GPIO_A_OUT] |= 0x40; //A2
+ 158   1              WaitMs(2);
+ 159   1      
+ 160   1      #ifdef FUN_SYSTEM_POWEROFF_WAIT_TIME
+                      SystemOffTimeInit();
+              #endif
+ 163   1      
+ 164   1              //示例，A2口作为普通GPIO输入带上拉
+ 165   1              SetA2IcsReg(A2_ICS_FOR_GPIO, A2_ICS_CLOSE);  //设置A2口作为普通GPIO
+ 166   1      //      ClrGpioRegBit(GPIO_A_PD, (1 << 2));
+ 167   1      //      ClrGpioRegBit(GPIO_A_PU, (1 << 2));
+ 168   1      //      SetGpioRegBit(GPIO_A_IE, (1 << 2));
+ 169   1      //      ClrGpioRegBit(GPIO_A_OE, (1 << 2));     
+ 170   1      
+ 171   1      #ifdef FUNC_PWM_EN
+                      //PWM示例，A0、A1口作为PWM输出
+                      PwmConfigChannel(PWM1_OUTPUT_GPIOA0, PWM_CLK_12MHZ, 1200, 600); //输出10KHz ，50%占空比的PWM信号
+                      PwmEnableChannel(PWM1_OUTPUT_GPIOA0);
+                      PwmConfigChannel(PWM2_OUTPUT_GPIOA1, PWM_CLK_46875HZ, 2, 1);    //输出23.435KHz ，50%占空比的PWM信号
+                      PwmEnableChannel(PWM2_OUTPUT_GPIOA1);
+              #endif
+C51 COMPILER V9.00   SYSCTRL                                                               05/16/2015 15:55:47 PAGE 4   
+
+ 178   1      
+ 179   1      #ifdef FUNC_EXMUTE_EN
+ 180   1              ExMuteOn();     
+ 181   1      #endif  
+ 182   1      
+ 183   1      
+ 184   1      #ifdef FUNC_DISP_EN
+ 185   1      
+ 186   1              DispInit(FALSE);
+ 187   1      #endif
+ 188   1      #ifdef FUNC_NPCA110X_EN
+                      I2C_Init();
+                      WaitMs(2);
+                      DBG(("initttttttt\n"));
+                      NPCA110X_Init();
+                      DBG(("ini22222\n"));
+                      isDefaultBass = TRUE;
+              #endif
+ 196   1      
+ 197   1              //如果电能控制功能打开，此处将启动第1次低电压检测和充电设备接入检测等
+ 198   1      #ifdef FUNC_POWER_MONITOR_EN
+ 199   1              PowerMonitorInit();
+ 200   1      #endif  
+ 201   1      
+ 202   1      #ifdef AU6210K_NR_D_8_CSRBT
+                      InDacSetVolume(gVolArr[28], gVolArr[28]);
+              #endif
+ 205   1              
+ 206   1      #ifdef FUNC_EXDAC_EN
+                      InDacInit(FALSE);
+                      InDacChannelSel(DAC_CH_DAC);
+                      UseAsSlaveDecd();
+                      //配置外部DAC采样率
+                      //SetExDacSampleRate(SampleRate);
+                      gSys.Volume = 28;
+                      PlayVol2Decd();
+                      InDacMuteDis();
+              //      while(1);
+              #else
+ 217   1              InDacInit(FALSE);
+ 218   1      #ifdef FUNC_DACOUT_DAPLESS_EN
+                      InDacVCOMSet(TRUE);     //免电容直接驱动耳机
+              #endif
+ 221   1      #endif
+ 222   1      
+ 223   1      #ifdef FUNC_BREAK_POINT_EN
+ 224   1      #if (FUNC_RESTORE_DEVICE_SELECE == FUNC_RESTORE_DEVICE_EEPROM)
+              #ifdef FUNC_SAVE_PLAYTIME_EN
+                      //读取LDOIN 内部ADC值,以此判断AC供电还是电池供电
+                      if(AdcReadOneChannel(0, ADC_VREF_AVDD33) > 43)  //检测LDOIN电压大于4.7v
+                      {
+                              gSavePlayTimeEnFlag = TRUE;     //AC供电需要掉电记忆播放时间
+                              DBG(("gSavePlayTimeEnFlag = 1;\n"));    
+                      }
+                      else
+                      {               
+                              gSavePlayTimeEnFlag = FALSE;    //电池供电不需要记忆
+                              DBG(("gSavePlayTimeEnFlag = 0;\n"));    
+                      }
+              #endif
+                      
+                      I2C_Init();
+C51 COMPILER V9.00   SYSCTRL                                                               05/16/2015 15:55:47 PAGE 5   
+
+              #endif
+ 241   1              BP_LoadInfo();
+ 242   1      #endif
+ 243   1      
+ 244   1      #ifdef FUNC_RTC_EN
+                      RtcCtrlInit();  
+              #endif
+ 247   1              
+ 248   1      #ifdef FUNC_SPI_FLASH_EN 
+ 249   1              SpiFlashInit();
+ 250   1      #if (defined(FUNC_SPI_PLAY_EN) || defined(FUNC_SPI_KEY_SOUND_EN))
+ 251   1              SpiFlashFsInit();
+ 252   1      #endif
+ 253   1      #endif
+ 254   1      
+ 255   1              DevCtrlInit();  
+ 256   1      
+ 257   1              while(1)
+ 258   1              {
+ 259   2                      FeedWatchDog();
+ 260   2      #ifdef FUNC_POWER_MONITOR_EN
+ 261   2                      //执行电池电压检测、充电设备接入检测及其附属的显示和系统关闭处理等
+ 262   2                      PowerMonitor(); 
+ 263   2      #endif
+ 264   2      
+ 265   2      #ifdef FUNC_SAVE_PLAYTIME_EN
+                              if((gPlayCtrl.State == PLAY_STATE_PLAY) && (gSavePlayTimeEnFlag == TRUE))
+                              {
+                                      TempVal = AdcReadOneChannel(0, ADC_VREF_AVDD33);
+                                      //DBG(("Vin: %d\n",  (WORD)TempVal));
+                      
+                                      //LDOIN电压低于4.7v判断为AC掉电
+                                      if((TempVal < 43) && (TempVal > 34))
+                                      {
+                                              BP_UpdatePlayTime();
+                                      }
+                              }
+              #endif
+ 278   2      #if 0
+                              SlaveStateCtrl();
+              #else   
+ 281   2                      KeyEventGet();
+ 282   2      #endif
+ 283   2                      DevStateCtrl();
+ 284   2                      switch(gSys.SystemMode)
+ 285   2                      {
+ 286   3                              case SYS_MODE_USB:
+ 287   3                              case SYS_MODE_SD:
+ 288   3      #ifdef FUNC_SPI_PLAY_EN
+                                      case SYS_MODE_SPIDEV:
+              #endif
+ 291   3      #ifdef FUNC_OTP_PLAY_EN
+                                      case SYS_MODE_OTPDEV:
+              #endif
+ 294   3                                      PlayStateCtrl();
+ 295   3                                      break;
+ 296   3      
+ 297   3      #ifdef FUNC_RADIO_EN
+                                      case SYS_MODE_RADIO:
+                                              RadioStateCtrl();
+                                              break;
+              #endif
+C51 COMPILER V9.00   SYSCTRL                                                               05/16/2015 15:55:47 PAGE 6   
+
+ 302   3      
+ 303   3      #ifdef FUNC_BLUETOOTH_CSR_EN
+ 304   3                              case SYS_MODE_BLUETOOTH:
+ 305   3                                      BluetoothStateCtrl();
+ 306   3                                      break;
+ 307   3      #endif
+ 308   3      #ifdef FUNC_LINEIN_EN
+ 309   3                              case SYS_MODE_LINEIN:
+ 310   3                                      LineInStateCtrl();
+ 311   3                                      break;
+ 312   3      #endif
+ 313   3      
+ 314   3      #if 0//def FUNC_BLUETOOTH_EN
+                                      case SYS_MODE_BLUETOOTH:
+                                              BluetoothStateCtrl();
+                                              break;
+              #endif
+ 319   3      
+ 320   3      
+ 321   3      #ifdef FUNC_AUDIO_EN
+                                      case SYS_MODE_AUDIO:
+                                              DeviceAudioStateCtrl();
+                                              break;
+              #endif
+ 326   3      
+ 327   3      #ifdef FUNC_READER_EN
+ 328   3                              case SYS_MODE_READER:
+ 329   3                                      DeviceStorStateCtrl();
+ 330   3                                      break;
+ 331   3      #endif
+ 332   3      
+ 333   3      #ifdef FUNC_AUDIO_READER_EN
+                                      case SYS_MODE_AUDIO_READER:
+                                              DeviceAudioStateCtrl();
+                                              DeviceStorStateCtrl();
+                                              break;
+              #endif
+ 339   3      
+ 340   3      #ifdef FUNC_STANDBY_EN
+                                      case SYS_MODE_STANDBY:
+                                              StandbyStateCtrl();
+                                              break;
+              
+              #endif
+ 346   3      
+ 347   3                              default:
+ 348   3                                      break;          
+ 349   3                      }       
+ 350   2      
+ 351   2      #ifdef FUNC_RTC_EN
+              #ifndef FUNC_SLAVE_UART_EN
+                              RtcStateCtrl();
+              #endif
+              #endif
+ 356   2      
+ 357   2      #ifdef FUNC_DISP_EN
+ 358   2                      Display();
+ 359   2      #endif
+ 360   2      
+ 361   2      #ifdef FUN_SYSTEM_POWEROFF_WAIT_TIME
+                              SystemOffTimeWait();
+              #endif
+C51 COMPILER V9.00   SYSCTRL                                                               05/16/2015 15:55:47 PAGE 7   
+
+ 364   2              }
+ 365   1      }
+ 366          
+ 367          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    298    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      5    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

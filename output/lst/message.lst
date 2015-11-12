@@ -1,0 +1,94 @@
+C51 COMPILER V9.00   MESSAGE                                                               05/16/2015 15:55:48 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE MESSAGE
+OBJECT MODULE PLACED IN .\output\obj\message.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE system\message.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(.\
+                    -config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\b
+                    -luetooth;.\i2c) DEBUG PRINT(.\output\lst\message.lst) OBJECT(.\output\obj\message.obj)
+
+line level    source
+
+   1          #include <reg51.h>                                                                              //include public header files
+   2          #include <string.h>
+   3          
+   4          #include "type.h"                                                                               //include project header files
+   5          #include "syscfg.h"
+   6          #include "utility.h"
+   7          #include "debug.h"
+   8          #include "ir_key.h"
+   9          #include "adc_key.h"
+  10          #include "sysctrl.h"
+  11          #include "message.h"
+  12          
+  13          
+  14          #define MAX_FIFO_DEPTH  8
+  15          
+  16          typedef struct _MESSAGE_FIFO
+  17          {
+  18                  BYTE            IndexHead;
+  19                  BYTE            Count;
+  20                  MESSAGE Buf[MAX_FIFO_DEPTH];
+  21          
+  22          } MESSAGE_FIFO;
+  23          
+  24          MESSAGE_FIFO MsgFifos[MSG_FIFO_COUNT];
+  25          
+  26          
+  27          // message module initial
+  28          VOID MessageInit(VOID)                                                  
+  29          {
+  30   1              memset(&MsgFifos, 0, sizeof(MsgFifos));
+  31   1      }
+  32          
+  33          
+  34          // send message process
+  35          BOOL MessageSend(BYTE MsgFifoIndex, BYTE Event)                                                 
+  36          {       
+  37   1              MESSAGE_FIFO* pMsgFifo = &MsgFifos[MsgFifoIndex]; 
+  38   1      
+  39   1              if(pMsgFifo->Count >= MAX_FIFO_DEPTH)           //fifo full
+  40   1              {
+  41   2      //              DBG(("fifo %bu is full!\n", MsgFifoIndex));
+  42   2                      return FALSE;
+  43   2              }       
+  44   1              pMsgFifo->Buf[(pMsgFifo->IndexHead + (pMsgFifo->Count++)) % MAX_FIFO_DEPTH] = Event;
+  45   1              return TRUE;
+  46   1      }
+  47          
+  48          
+  49          // get message process
+  50          //fifo empty return MSG_NONE, else return message
+  51          BYTE MessageGet(BYTE MsgFifoIndex)                                                      
+  52          {
+  53   1              MESSAGE Event = MSG_NONE;
+C51 COMPILER V9.00   MESSAGE                                                               05/16/2015 15:55:48 PAGE 2   
+
+  54   1              MESSAGE_FIFO* pMsgFifo = &MsgFifos[MsgFifoIndex];
+  55   1      
+  56   1              if(pMsgFifo->Count)                     //fifo is not empty
+  57   1              {
+  58   2                      Event = pMsgFifo->Buf[pMsgFifo->IndexHead];
+  59   2                      pMsgFifo->IndexHead = (pMsgFifo->IndexHead + 1) % MAX_FIFO_DEPTH;
+  60   2                      pMsgFifo->Count--;
+  61   2              }                               
+  62   1              return Event;
+  63   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    228    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     30       8
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,1 @@
+"fs\otp_fs.c" LARGE OBJECTADVANCED OPTIMIZE (9,SIZE) BROWSE INCDIR(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\otp_fs.lst) OBJECT(.\output\obj\otp_fs.obj)

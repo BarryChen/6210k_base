@@ -1,0 +1,220 @@
+C51 COMPILER V9.00   INTERRUPT                                                             05/16/2015 15:55:47 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE INTERRUPT
+OBJECT MODULE PLACED IN .\output\obj\interrupt.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE system\interrupt.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(
+                    -.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.
+                    -\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\interrupt.lst) OBJECT(.\output\obj\interrupt.obj)
+
+line level    source
+
+   1          #include <reg51.h>                                                                              //include public header files
+   2          
+   3          #include "type.h"                                                                               //include project header files
+   4          #include "utility.h"
+   5          #include "power_key.h"
+   6          #include "key.h"
+   7          #include "syscfg.h"
+   8          #include "sysctrl.h"
+   9          #include "timer.h"
+  10          #include "debug.h"
+  11          #include "ir_key.h"
+  12          #include "rtc.h"
+  13          #include "gpio.h"
+  14          #include "int.h"
+  15          #include "interrupt.h"
+  16          #include "display.h"
+  17          #include "coding_key.h"
+  18          #include "touchkey_ctrl.h"
+  19          #include "slave_ctrl.h"
+  20          #include "slave_cmd.h"
+  21          
+  22          #ifdef FUNC_BEEP_SOUND_EN               
+              volatile WORD PushKeyBeepTimerCount = 0;
+              extern BOOL gPushKeyBeepStartFlag;
+              #endif
+  26          
+  27          #ifdef FUNC_TIMER1_REFRESH_LED_EN
+              BYTE gClkDivRate = 1;
+              #define TIMER1USTIMER   500     //定义Timer1的定时微秒单位时间
+              #endif
+  31          
+  32          extern VOID OnDataReceived(VOID);
+  33          extern VOID OnDataSend(VOID);
+  34          extern VOID OnOtgRcvPacket(VOID);
+  35          
+  36          
+  37          // EXTERNAL INT 0 interrupt service function.
+  38          VOID ExternalInt0(VOID)         interrupt 0     
+  39          {
+  40   1      
+  41   1      }
+  42          
+  43          
+  44          // TIMER/COUNTER 0 interrupt service function.
+  45          // Note: this ISR is used as system tick.
+  46          VOID Timer0(VOID)                       interrupt 1                     
+  47          {  
+  48   1              TimerTick();
+  49   1      
+  50   1      #ifdef FUNC_BEEP_SOUND_EN               
+                      if(gPushKeyBeepStartFlag)
+                      {
+                              PushKeyBeepTimerCount++;
+C51 COMPILER V9.00   INTERRUPT                                                             05/16/2015 15:55:47 PAGE 2   
+
+                              if(PushKeyBeepTimerCount >= 1)
+                              {
+                                      PushKeyBeepTimerCount = 0;
+                                      if(baGPIOCtrl[GPIO_E_OUT] & 0x01)
+                                      {
+                                              baGPIOCtrl[GPIO_E_OUT] &= ~0x01;
+                                      }
+                                      else
+                                      {
+                                              baGPIOCtrl[GPIO_E_OUT] |= 0x01;
+                                      }
+                              }
+                      }
+              #endif
+  68   1      }
+  69          
+  70          
+  71          // EXTERNAL INT 1 interrupt service function.
+  72          // Note: extend-timer(1s) interrupt source for system tick;
+  73          //      GPIO_C port interrupt source, for IR soft-decode;
+  74          VOID ExternalInt1(VOID)         interrupt 2
+  75          {
+  76   1              WORD intType;
+  77   1              BYTE intEnMap;
+  78   1      
+  79   1              intType = GetIntFlag();                                                         //check extended interrupt source flag
+  80   1              intEnMap = intType & GetIntEn();
+  81   1      
+  82   1      //      DBG(("---%-.2BX\n", intEnMap));
+  83   1      #if (defined(FUNC_AUDIO_EN) || defined(FUNC_AUDIO_READER_EN))
+                      if(intEnMap & MASK_INT_OTG_MC)
+                      {
+                              OnOtgRcvPacket();
+                      }
+              #endif
+  89   1      
+  90   1              if(intEnMap & MASK_INT_GPIO)    
+  91   1              {               
+  92   2      #ifdef FUNC_CODING_KEY_EN       
+                              if(GetGpioReg(CODING_KEY_A_PORT_INTS) & CODING_KEY_A_BIT)       //coding key interrupt
+                              {       
+                                      CodingKeyInterrupt();   
+                              }
+                              SetGpioRegBit(CODING_KEY_A_PORT_INTC, CODING_KEY_A_BIT);
+              #endif  
+  99   2              }
+ 100   1      }
+ 101          
+ 102          
+ 103          // TIMER/COUNTER 1 interrupt service function.
+ 104          VOID Timer1(VOID)                       interrupt 3                     
+ 105          {
+ 106   1              //for user code 
+ 107   1      #ifdef FUNC_TIMER1_REFRESH_LED_EN
+              #ifdef FUNC_SEG_LED_EN 
+                      LedFlushDisp();
+                      TR1 = 0;
+                      TH1 = (0xFFFF - (TIMER1USTIMER / gClkDivRate)) >> 8;                                       
+                      TL1 = (0xFFFF - (TIMER1USTIMER / gClkDivRate)) & 0xFF; 
+                      TR1 = 1;
+              #endif
+              #endif
+C51 COMPILER V9.00   INTERRUPT                                                             05/16/2015 15:55:47 PAGE 3   
+
+ 116   1      
+ 117   1      #ifdef FUNC_TOUCH_KEY_EN
+                      static BYTE Count = 0;
+              
+                      Count++;
+                      if(Count >= 3)
+                      {
+                              Count = 0;
+                              TR1 = 0;
+                              TouchKeyDoutPro();              
+                              TR1 = 1;                
+                      }
+              #endif
+ 129   1      }
+ 130          
+ 131          
+ 132          // Serial Port interrupt service function.
+ 133          VOID Serial(VOID)                       interrupt 4     
+ 134          {
+ 135   1              //for user code
+ 136   1      #if 0   //csr蓝牙案子如果用到串口通讯则在此处开宏
+                      if(RI == 1)
+                      {
+                             baGPIOCtrl[GPIO_D_OE]|=0x01;
+                              baGPIOCtrl[GPIO_D_OUT]&=(~0x01);   
+                              RI=0;
+                              #if defined(FUNC_BLUETOOTH_CSR_EN) && !defined(AU6210K_NR_D_8_CSRBT)
+                              OnDataReceived();
+                              //TESTSlaveSendRespSecond();
+                              #endif
+                              baGPIOCtrl[GPIO_D_OUT]|=0x01;
+                      }
+              #endif  
+ 149   1      }
+ 150          
+ 151          
+ 152          // Interrupts control initialize operation.
+ 153          VOID ExInt1Init(VOID)
+ 154          {                                                                       
+ 155   1              IT1 = 0;                                                                                        //voltage level trigger
+ 156   1              EX1 = 1;                                            //enable EX-INT1
+ 157   1              EA = 1;
+ 158   1      }
+ 159          
+ 160          
+ 161          #if (defined(FUNC_TIMER1_REFRESH_LED_EN) || defined(FUNC_TOUCH_KEY_EN))
+              VOID Timer1Init(VOID)
+              {                       
+              #ifdef FUNC_TIMER1_REFRESH_LED_EN
+                      TMOD |= 0x10;                      //T1 方式1   
+                      TH1 = 0xFC;                       
+                      TL1 = 0x17;                      
+                      TR1 = 1;                          //启用定时器T1   
+                      ET1 = 1;                          //开定时器T1中断      
+              #endif
+              
+              #ifdef FUNC_TOUCH_KEY_EN
+                      //配置为8位自动重装载模式
+                      ET1 = 0;        
+                      TR1 = 0;
+                      TMOD |= 0x20;
+                      TH1 = 0X06;
+C51 COMPILER V9.00   INTERRUPT                                                             05/16/2015 15:55:47 PAGE 4   
+
+                      TL1 = 0X06; 
+                      ET1 = 1;
+                      TR1 = 0;
+              #endif
+              }
+              #endif
+ 184          
+ 185          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    162    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       3
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

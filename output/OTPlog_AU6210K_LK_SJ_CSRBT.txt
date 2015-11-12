@@ -1,0 +1,67 @@
+*--------------------------------------------*
+* 星期三 九月 10 2014 10:09:55
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : E:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v1.hex
+Download Size : 32704 bytes
+CheckSum      : 164
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期二 九月 23 2014 09:17:09
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v6.hex
+Download Size : 32704 bytes
+CheckSum      : 192
+IsBitFlip     : 0
+按照智博调好的做一版本
+
+
+*--------------------------------------------*
+* 星期二 九月 23 2014 11:19:49
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v7.hex
+Download Size : 32704 bytes
+CheckSum      : 54
+IsBitFlip     : 0
+修复蓝牙模式下控灯问题
+
+*--------------------------------------------*
+* 星期三 九月 24 2014 14:25:00
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v8.hex
+Download Size : 32704 bytes
+CheckSum      : 82
+IsBitFlip     : 0
+优化代码之后给lk测试，卡检测问题
+
+*--------------------------------------------*
+* 星期三 十月 8 2014 15:06:04
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v9.hex
+Download Size : 32704 bytes
+CheckSum      : 135
+IsBitFlip     : 0
+修改line in声音大小
+
+
+*--------------------------------------------*
+* 星期三 十二月 3 2014 09:44:10
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v10.hex
+Download Size : 32704 bytes
+CheckSum      : 118
+IsBitFlip     : 0
+给两个样品
+

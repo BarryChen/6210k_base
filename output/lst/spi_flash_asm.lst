@@ -1,0 +1,253 @@
+A51 MACRO ASSEMBLER  SPI_FLASH_ASM                                                        03/13/2015 11:27:27 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.01
+OBJECT MODULE PLACED IN .\output\obj\spi_flash_asm.obj
+ASSEMBLER INVOKED BY: d:\Keil C51\C51\BIN\A51.EXE spi_flash\spi_flash_asm.a51 SET(LARGE) DEBUG PRINT(.\output\lst\spi_fl
+                      ash_asm.lst) OBJECT(.\output\obj\spi_flash_asm.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     NAME    SPI_FLASH_ASM
+                       2     
+                       3     ;spi falsh嵌渲煤昕刂疲枰蛃pi_flash.c中配置保持一致 
+  0009                 4     FLASH_GPIO_PORT         EQU             09H ;GPIOBIN端口偏移量为09H
+  0000                 5     FLAHS_CLK_BIT           EQU     0 ;GPIO clk     bit位
+  0001                 6     FLAHS_DI_BIT            EQU     1 ;CPIO DI bit位
+  0002                 7     FLAHS_DO_BIT            EQU     2 ;GPIO DO bit位
+                       8     
+  0001                 9     FLAHS_CLK_PIN           EQU     1 << FLAHS_CLK_BIT
+  9600                10     GPIO_PORT_START         EQU     9600H
+                      11     
+                      12     ?PR?_SpiSendByte?SPI_FLASH_ASM  SEGMENT CODE
+                      13     ?PR?SpiRecvByte?SPI_FLASH_ASM   SEGMENT CODE
+                      14     
+                      15     
+                      16     PUBLIC  _SpiSendByte
+                      17     PUBLIC  SpiRecvByte
+                      18     
+                      19     
+                      20             
+----                  21             RSEG ?PR?_SpiSendByte?SPI_FLASH_ASM     
+0000                  22     _SpiSendByte:
+0000 7808             23             MOV R0, #08H
+                      24     
+0002                  25     SpiSendByte_LOOP:
+                      26             
+                      27             
+0002 EF               28             MOV A, R7
+0003 33               29             RLC A
+0004 FF               30             MOV R7, A
+                      31     
+0005 90960A           32             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+0008 E0               33             MOVX A, @DPTR
+0009 92E1             34             MOV ACC.FLAHS_DI_BIT, C
+                      35             
+000B 54FE             36             ANL A, #~FLAHS_CLK_PIN
+000D F0               37             MOVX @DPTR, A
+                      38     
+                      39             
+000E 90960A           40             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H 
+0011 E0               41             MOVX A, @DPTR
+0012 4401             42             ORL A, #FLAHS_CLK_PIN
+0014 F0               43             MOVX @DPTR, A
+                      44     
+0015 D8EB             45             DJNZ R0, SpiSendByte_LOOP
+                      46     
+0017 22               47             RET
+                      48     
+                      49             
+----                  50     RSEG ?PR?SpiRecvByte?SPI_FLASH_ASM      
+0000                  51     SpiRecvByte:
+0000 E4               52             CLR A
+0001 C3               53             CLR C
+0002 FA               54             MOV R2, A
+                      55     
+                      56             
+0003 90960A           57             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H 
+A51 MACRO ASSEMBLER  SPI_FLASH_ASM                                                        03/13/2015 11:27:27 PAGE     2
+
+0006 E0               58             MOVX A, @DPTR
+0007 4401             59             ORL A, #FLAHS_CLK_PIN
+0009 F0               60             MOVX @DPTR, A
+                      61             
+                      62             
+000A 54FE             63             ANL A, #~FLAHS_CLK_PIN
+000C F0               64             MOVX @DPTR, A   
+                      65             
+000D 909609           66             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT
+0010 E0               67             MOVX A, @DPTR
+0011 A2E2             68             MOV C, ACC.FLAHS_DO_BIT
+0013 E4               69             CLR A
+0014 92E0             70             MOV ACC.0, C
+0016 2A               71             ADD A, R2
+0017 23               72             RL A
+0018 FA               73             MOV R2, A
+                      74             
+0019 90960A           75             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+001C E0               76             MOVX A, @DPTR
+001D 4401             77             ORL A, #FLAHS_CLK_PIN
+001F F0               78             MOVX @DPTR, A
+                      79     
+                      80             
+0020 54FE             81             ANL A, #~FLAHS_CLK_PIN
+0022 F0               82             MOVX @DPTR, A
+                      83             
+0023 909609           84             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT
+0026 E0               85             MOVX A, @DPTR
+0027 A2E2             86             MOV C, ACC.FLAHS_DO_BIT
+0029 E4               87             CLR A
+002A 92E0             88             MOV ACC.0, C
+002C 2A               89             ADD A, R2
+002D 23               90             RL A
+002E FA               91             MOV R2, A
+                      92             
+002F 90960A           93             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+0032 E0               94             MOVX A, @DPTR
+0033 4401             95             ORL A, #FLAHS_CLK_PIN
+0035 F0               96             MOVX @DPTR, A
+                      97             
+                      98             
+0036 54FE             99             ANL A, #~FLAHS_CLK_PIN
+0038 F0              100             MOVX @DPTR, A
+                     101             
+0039 909609          102             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT
+003C E0              103             MOVX A, @DPTR
+003D A2E2            104             MOV C, ACC.FLAHS_DO_BIT
+003F E4              105             CLR A
+0040 92E0            106             MOV ACC.0, C
+0042 2A              107             ADD A, R2
+0043 23              108             RL A
+0044 FA              109             MOV R2, A
+                     110             
+0045 90960A          111             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+0048 E0              112             MOVX A, @DPTR
+0049 4401            113             ORL A, #FLAHS_CLK_PIN
+004B F0              114             MOVX @DPTR, A
+                     115             
+                     116             
+004C 54FE            117             ANL A, #~FLAHS_CLK_PIN
+004E F0              118             MOVX @DPTR, A
+                     119             
+004F 909609          120             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT
+0052 E0              121             MOVX A, @DPTR
+0053 A2E2            122             MOV C, ACC.FLAHS_DO_BIT
+0055 E4              123             CLR A
+A51 MACRO ASSEMBLER  SPI_FLASH_ASM                                                        03/13/2015 11:27:27 PAGE     3
+
+0056 92E0            124             MOV ACC.0, C
+0058 2A              125             ADD A, R2
+0059 23              126             RL A
+005A FA              127             MOV R2, A
+                     128             
+005B 90960A          129             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+005E E0              130             MOVX A, @DPTR
+005F 4401            131             ORL A, #FLAHS_CLK_PIN
+0061 F0              132             MOVX @DPTR, A
+                     133             
+                     134             
+0062 54FE            135             ANL A, #~FLAHS_CLK_PIN
+0064 F0              136             MOVX @DPTR, A
+                     137             
+0065 909609          138             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT
+0068 E0              139             MOVX A, @DPTR
+0069 A2E2            140             MOV C, ACC.FLAHS_DO_BIT
+006B E4              141             CLR A
+006C 92E0            142             MOV ACC.0, C
+006E 2A              143             ADD A, R2
+006F 23              144             RL A
+0070 FA              145             MOV R2, A
+                     146             
+0071 90960A          147             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+0074 E0              148             MOVX A, @DPTR
+0075 4401            149             ORL A, #FLAHS_CLK_PIN
+0077 F0              150             MOVX @DPTR, A
+                     151             
+                     152             
+0078 54FE            153             ANL A, #~FLAHS_CLK_PIN
+007A F0              154             MOVX @DPTR, A
+                     155             
+007B 909609          156             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT
+007E E0              157             MOVX A, @DPTR
+007F A2E2            158             MOV C, ACC.FLAHS_DO_BIT
+0081 E4              159             CLR A
+0082 92E0            160             MOV ACC.0, C
+0084 2A              161             ADD A, R2
+0085 23              162             RL A
+0086 FA              163             MOV R2, A
+                     164             
+0087 90960A          165             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+008A E0              166             MOVX A, @DPTR
+008B 4401            167             ORL A, #FLAHS_CLK_PIN
+008D F0              168             MOVX @DPTR, A
+                     169             
+                     170             
+008E 54FE            171             ANL A, #~FLAHS_CLK_PIN
+0090 F0              172             MOVX @DPTR, A
+                     173             
+0091 909609          174             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT
+0094 E0              175             MOVX A, @DPTR
+0095 A2E2            176             MOV C, ACC.FLAHS_DO_BIT
+0097 E4              177             CLR A
+0098 92E0            178             MOV ACC.0, C
+009A 2A              179             ADD A, R2
+009B 23              180             RL A
+009C FA              181             MOV R2, A
+                     182             
+009D 90960A          183             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+00A0 E0              184             MOVX A, @DPTR
+00A1 4401            185             ORL A, #FLAHS_CLK_PIN
+00A3 F0              186             MOVX @DPTR, A
+                     187             
+                     188             
+00A4 54FE            189             ANL A, #~FLAHS_CLK_PIN
+A51 MACRO ASSEMBLER  SPI_FLASH_ASM                                                        03/13/2015 11:27:27 PAGE     4
+
+00A6 F0              190             MOVX @DPTR, A
+                     191             
+00A7 909609          192             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT
+00AA E0              193             MOVX A, @DPTR
+00AB A2E2            194             MOV C, ACC.FLAHS_DO_BIT
+00AD E4              195             CLR A
+00AE 92E0            196             MOV ACC.0, C
+00B0 2A              197             ADD A, R2
+00B1 FA              198             MOV R2, A
+                     199             
+00B2 90960A          200             MOV DPTR, #GPIO_PORT_START +  FLASH_GPIO_PORT + 01H
+00B5 E0              201             MOVX A, @DPTR
+00B6 4401            202             ORL A, #FLAHS_CLK_PIN
+00B8 F0              203             MOVX @DPTR, A
+                     204     
+00B9 EA              205             MOV A, R2
+00BA FF              206             MOV R7, A
+00BB 22              207             RET
+                     208     
+                     209             END
+                             
+A51 MACRO ASSEMBLER  SPI_FLASH_ASM                                                        03/13/2015 11:27:27 PAGE     5
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                         T Y P E  V A L U E   ATTRIBUTES
+
+?PR?SPIRECVBYTE?SPI_FLASH_ASM.  C SEG    00BCH       REL=UNIT
+?PR?_SPISENDBYTE?SPI_FLASH_ASM  C SEG    0018H       REL=UNIT
+ACC. . . . . . . . . . . . . .  D ADDR   00E0H   A   
+FLAHS_CLK_BIT. . . . . . . . .  N NUMB   0000H   A   
+FLAHS_CLK_PIN. . . . . . . . .  N NUMB   0001H   A   
+FLAHS_DI_BIT . . . . . . . . .  N NUMB   0001H   A   
+FLAHS_DO_BIT . . . . . . . . .  N NUMB   0002H   A   
+FLASH_GPIO_PORT. . . . . . . .  N NUMB   0009H   A   
+GPIO_PORT_START. . . . . . . .  N NUMB   9600H   A   
+SPIRECVBYTE. . . . . . . . . .  C ADDR   0000H   R   SEG=?PR?SPIRECVBYTE?SPI_FLASH_ASM
+SPISENDBYTE_LOOP . . . . . . .  C ADDR   0002H   R   SEG=?PR?_SPISENDBYTE?SPI_FLASH_ASM
+SPI_FLASH_ASM. . . . . . . . .  N NUMB   -----       
+_SPISENDBYTE . . . . . . . . .  C ADDR   0000H   R   SEG=?PR?_SPISENDBYTE?SPI_FLASH_ASM
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

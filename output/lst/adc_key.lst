@@ -1,0 +1,844 @@
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE ADC_KEY
+OBJECT MODULE PLACED IN .\output\obj\adc_key.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE key\adc_key.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(.\con
+                    -fig;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\blue
+                    -tooth;.\i2c) DEBUG PRINT(.\output\lst\adc_key.lst) OBJECT(.\output\obj\adc_key.obj)
+
+line level    source
+
+   1          #include <reg51.h>                                                                              //include public header files
+   2          
+   3          #include "type.h"                                                                               //include project header files
+   4          #include "syscfg.h"
+   5          #include "utility.h"
+   6          #include "debug.h"
+   7          #include "timer.h"
+   8          #include "sysctrl.h"
+   9          #include "key.h"
+  10          #include "adc_key.h"
+  11          #include "gpio.h"
+  12          #include "adc.h"
+  13          #include "message.h"
+  14          #include "device.h"
+  15          #include "seg_panel.h"
+  16          #include "seg_led_disp.h"
+  17          
+  18          
+  19          #ifdef FUNC_ADC_KEY_EN
+  20          
+  21          #if (defined(FUNC_LED_ADC1_KEY_MULTIPLE_EN) || defined(FUNC_LED_ADC2_KEY_MULTIPLE_EN))
+              #define         ADC_KEY_SCAN_TIME                       20
+              #define         ADC_KEY_JTTER_TIME                      40
+              #else
+  25          #define         ADC_KEY_SCAN_TIME                       10
+  26          #define         ADC_KEY_JTTER_TIME                      20
+  27          #endif
+  28          #define         ADC_KEY_CP_TIME                         600     //1000
+  29          #define         ADC_KEY_PWRDOWN_CP_TIME         2000    //cp-time for power-down key
+  30          #define         ADC_KEY_CPH_TIME                        200             //450
+  31          #define         ADC_KEY_HPPUSHOUT_CP_TIME       200
+  32          
+  33          //#define               ADC_KEY_COUNT                           11
+  34          
+  35          #define         ADC_KEY_POWER0_IDX                      8               //POWER-DOWN KEY index.
+  36          #define         ADC_KEY_POWER1_IDX                      15              //POWER-DOWN KEY index.
+  37          #define         ADC_KEY_POWER2_IDX                      20
+  38          
+  39          #ifdef HEADPHONE_ADC_PORT_CH
+              #ifdef HEADPHONE_ADC_PU_EN
+              #define         ADC_KEY_HPPUSHOUT_IDX           23
+              #define         ADC_KEY_HPPUSHIN_IDX            22
+              #else
+              #define         ADC_KEY_HPPUSHOUT_IDX           22
+              #define         ADC_KEY_HPPUSHIN_IDX            23
+              #endif
+              #endif
+  48          
+  49          typedef enum _ADC_KEY_STATE
+  50          {
+  51                  ADC_KEY_STATE_IDLE,
+  52                  ADC_KEY_STATE_JITTER,
+  53                  ADC_KEY_STATE_PRESS_DOWN,
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 2   
+
+  54                  ADC_KEY_STATE_CP
+  55          
+  56          } ADC_KEY_STATE;
+  57          
+  58          TIMER                   AdcKeyWaitTimer;
+  59          TIMER                   AdcKeyScanTimer;
+  60          ADC_KEY_STATE   AdcKeyState;
+  61          
+  62          
+  63          #ifdef FUNC_BEEP_SOUND_EN       
+              extern BOOL gPushKeyNeedBeepFlag;
+              #endif
+  66          
+  67          #ifdef FUNC_SEG_LED_EN
+              extern BOOL gLedDispRefreshFlag;
+              #endif
+  70          
+  71          #if defined(AU6210K_JLH_JH82B)
+              #define         ADC_KEY_COUNT                           3
+              static CODE BYTE AdcKeyEvent[][4] = 
+              {
+              //      SP                                              CPS                                     CPH                                     CPR     
+                      {MSG_PRE,                       MSG_VOL_SUB,            MSG_VOL_SUB,    MSG_NONE        },      //SW2   
+                      {MSG_NEXT,                      MSG_VOL_ADD,            MSG_VOL_ADD,    MSG_NONE        },      //SW3
+                      {MSG_PLAY_PAUSE,        MSG_MODE_SW,            MSG_NONE,               MSG_NONE        },      //SW1
+              };
+              
+              
+              BYTE  CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+              #if 1                   //上拉10K
+                      4,      //SW3   0               0       0       //SW13
+                      17,     //SW4   1.5k            8       8       //SW14
+                      30,     //SW5   6.8K            26      26      //SW15
+              #else
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   2.2k            6       6       //SW14
+                      14,     //SW5   4.7K            11      12      //SW15
+              #endif
+              };
+              
+              #elif defined(AU6210K_NR_D_9X)
+              #define         ADC_KEY_COUNT                           3
+              static CODE BYTE AdcKeyEvent[][4] = 
+              {
+              //      SP                                              CPS                                     CPH                                     CPR     
+                      {MSG_PLAY_PAUSE,                MSG_NONE,                       MSG_NONE,               MSG_NONE        },      //SW4
+                      {MSG_NEXT,                      MSG_VOL_ADD,            MSG_VOL_ADD,    MSG_NONE        },      //SW3
+                      {MSG_PRE,                       MSG_VOL_SUB,            MSG_VOL_SUB,    MSG_NONE        },      //SW2   
+              };
+              
+              
+              BYTE  CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   2.2k            6       6       //SW14
+                      14,     //SW5   4.7K            11      12      //SW15
+              };
+              
+              /*#elif defined(AU6210K_NR_D_9X_XJ_HTS)
+              #define         ADC_KEY_COUNT                           3
+              static CODE BYTE AdcKeyEvent[][4] = 
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 3   
+
+              {
+              //      SP                                              CPS                                     CPH                                     CPR     
+                      {MSG_PLAY_PAUSE,        MSG_BLUETOOTH_REJECT,                   MSG_NONE,               MSG_NONE        },      //SW4
+                      {MSG_PRE,                       MSG_VOL_SUB,            MSG_VOL_SUB,    MSG_NONE        },      //SW2   
+                      {MSG_NEXT,                      MSG_VOL_ADD,            MSG_VOL_ADD,    MSG_NONE        },      //SW3
+              };
+              
+              
+              BYTE  CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   2.2k            6       6       //SW14
+                      14,     //SW5   4.7K            11      12      //SW15
+              };*/
+              #elif defined(AU6210K_NR_D_9X_XJ_HTS)
+              #define         ADC_KEY_COUNT                           5
+              static CODE BYTE AdcKeyEvent[][4] = 
+              {
+              //      SP                                              CPS                                     CPH                                     CPR     
+                      {MSG_VOL_SUB,       MSG_NONE,                       MSG_NONE,                   MSG_NONE                },      //SW1   
+                      {MSG_NEXT,                      MSG_MODE_SW,                MSG_NONE,               MSG_NONE            },      //SW2   
+                      {MSG_PRE,                       MSG_BT_DISCONNECT,                      MSG_NONE,                   MSG_NONE            },      //SW3
+                      {MSG_PLAY_PAUSE,        MSG_BLUETOOTH_REJECT,   MSG_NONE,                       MSG_NONE                }, //SW4
+                      {MSG_VOL_ADD,           MSG_NONE,                           MSG_NONE,                   MSG_NONE                },      //SW5
+              };
+              
+              
+              BYTE  CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   2.2k            6       6       //SW14
+                      14,     //SW5   4.7K            11      12      //SW15
+                      19,     //SW6   7.5K            16      17      //SW16
+                      25,     //SW7   12K             22      22      //SW17
+              };
+              
+              #elif defined(AU6210K_HXX_B002)
+              #define         ADC_KEY_COUNT                           5
+              static CODE BYTE AdcKeyEvent[][4] = 
+              {
+              //      SP                                              CPS                                     CPH                                     CPR     
+                      {MSG_PLAY_PAUSE,                MSG_SCAN,                       MSG_NONE,               MSG_NONE        },      //SW4
+                      {MSG_NEXT,                      MSG_VOL_ADD,            MSG_VOL_ADD,    MSG_NONE        },      //SW3
+                      {MSG_PRE,                       MSG_VOL_SUB,            MSG_VOL_SUB,    MSG_NONE        },      //SW2   
+                      {MSG_MODE_SW,   MSG_NONE,               MSG_NONE,               MSG_NONE        },      //SW1
+              };
+              
+              
+              BYTE  CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   2.2k            6       6       //SW14
+                      14,     //SW5   4.7K            11      12      //SW15
+                      19,     //SW6   7.5K            16      17      //SW16
+              };
+              
+              #elif defined(AU6210K_NR_D_8_CSRBT)
+              #define         ADC_KEY_COUNT                           8
+              static CODE BYTE AdcKeyEvent[][4] = 
+              {
+              //      SP                                              CPS                                     CPH                                                     CPR     
+                      {MSG_DEFAULT,           MSG_NONE,                               MSG_NONE,                                       MSG_NONE        },      //SW1
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 4   
+
+                      {MSG_NEXT,                      MSG_VOL_ADD,                    MSG_VOL_ADD,                            MSG_NONE        },      //SW3
+                      {MSG_PRE,                       MSG_VOL_SUB,                    MSG_VOL_SUB,                            MSG_NONE        },      //SW2   
+                      {MSG_PLAY_PAUSE,        MSG_BLUETOOTH_REJECT,   MSG_BLUETOOTH_REJECT,           MSG_NONE        },      //SW4
+                      {MSG_TREBUP,            MSG_TREBUP,                             MSG_TREBUP,                                     MSG_NONE        },      //SW4MSG_TREBUP
+                      {MSG_TREBDN,            MSG_TREBDN,                             MSG_TREBDN,                                     MSG_NONE        },      //SW4MSG_TREBUP 
+                      {MSG_BASSUP,            MSG_BASSUP,                             MSG_BASSUP,                                     MSG_NONE        },      //SW4MSG_TREBUP
+                      {MSG_BASSDN,            MSG_BASSDN,                             MSG_BASSDN,                                     MSG_NONE        },      //SW4MSG_TREBUP
+              };
+              
+              
+              BYTE  CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   2.2k            6       6       //SW14
+                      14,     //SW5   4.7K            11      12      //SW15
+                      19,     //SW6   7.5K            16      17      //SW16
+                      25,     //SW7   12K             22      22      //SW17
+                      30,     //SW8   16K             26      27      //SW18  
+                      36,     //SW9   24K             33      33      //SW19
+                      42,     //SW10  36K             39      39      //SW20
+                      
+              };
+              #elif defined(AU6210K_LK_SJ_CSRBT)
+              #define         ADC_KEY_COUNT                           4
+              static CODE BYTE AdcKeyEvent[][4] = 
+              {
+              //      SP                                              CPS                                     CPH                                                     CPR     
+                      {MSG_MODE_SW,           MSG_NONE,                               MSG_NONE,                                       MSG_NONE        },      //SW1
+                      {MSG_NEXT,                      MSG_VOL_ADD,                    MSG_VOL_ADD,                            MSG_NONE        },      //SW3
+                      {MSG_PRE,                       MSG_VOL_SUB,                    MSG_VOL_SUB,                            MSG_NONE        },      //SW2   
+                      {MSG_PLAY_PAUSE,        MSG_BLUETOOTH_REJECT,   MSG_BLUETOOTH_REJECT,           MSG_NONE        },      //SW4
+              };
+              
+              
+              BYTE  CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   2.2k            6       6       //SW14
+                      14,     //SW5   4.7K            11      12      //SW15
+                      19,     //SW6   7.5K            16      17      //SW16
+              };
+              
+              #elif defined(AU6210K_ZB_BT007_CSR)
+ 221          #define         ADC_KEY_COUNT                           6
+ 222          static CODE BYTE AdcKeyEvent[][4] = 
+ 223          {
+ 224          //      SP                                              CPS                                     CPH                                                     CPR     
+ 225                  {MSG_MODE_SW,           MSG_NONE,                               MSG_NONE,                                       MSG_NONE        },      //SW3
+ 226                  {MSG_NEXT,                      MSG_V_ADD,                      MSG_VOL_ADD,                            MSG_NONE        },      //SW3
+ 227                  {MSG_PRE,                       MSG_V_SUB,                      MSG_VOL_SUB,                            MSG_NONE        },      //SW2   
+ 228                  {MSG_PLAY_PAUSE,        MSG_BT_CHANGE_PHONE,    MSG_NONE,                                       MSG_NONE        },      //SW4
+ 229                  {MSG_BLUETOOTH_ANSWER,  MSG_BLUETOOTH_REJECT,   MSG_BLUETOOTH_REJECT,           MSG_NONE        },      //SW4
+ 230                  {MSG_IR_ON_OFF, MSG_IR_ON_OFF,  MSG_NONE,               MSG_NONE        },      //SW4
+ 231          };
+ 232          
+ 233          
+ 234          BYTE  CODE KeyVal1[ADC_KEY_COUNT] = 
+ 235          { 
+ 236                  3,      //SW3   0               0       0       //SW13
+ 237                  9,      //SW4   2.2k            6       6       //SW14
+ 238                  14,     //SW5   4.7K            11      12      //SW15
+ 239                  19,     //SW6   7.5K            16      17      //SW16
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 5   
+
+ 240                  25,     //SW7   12K             22      22      //SW17
+ 241                  30,     //SW8   16K             26      27      //SW18  
+ 242                  
+ 243          };
+ 244          #else
+              #define         ADC_KEY_COUNT                           11
+              static CODE BYTE AdcKeyEvent[][4] = 
+              {
+              //      SP                                              CPS                                     CPH                                     CPR
+              #ifdef FUNC_LED_ADC1_KEY_MULTIPLE_EN    
+                      {MSG_NONE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW1   
+                      {MSG_NONE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW2   
+                      {MSG_NONE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW3
+                      {MSG_NONE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                }, //SW4
+                      {MSG_PLAY_PAUSE,        MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW5
+                      {MSG_NEXT,                      MSG_VOL_ADD,            MSG_VOL_ADD,            MSG_NONE                },      //SW6
+                      {MSG_PRE,                       MSG_VOL_SUB,            MSG_VOL_SUB,            MSG_NONE                },      //SW7
+                      {MSG_MODE_SW,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW8
+                      {MSG_EQ_SW,             MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW11
+                      {MSG_VOL_ADD,           MSG_VOL_ADD,            MSG_VOL_ADD,            MSG_NONE                },      //SW12
+                      {MSG_VOL_SUB,           MSG_VOL_SUB,            MSG_VOL_SUB,            MSG_NONE                },      //SW24
+              #else
+                      {MSG_PLAY_PAUSE,        MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW1   
+                      {MSG_NEXT,                      MSG_VOL_ADD,            MSG_VOL_ADD,            MSG_NONE                },      //SW2   
+                      {MSG_PRE,                       MSG_VOL_SUB,            MSG_VOL_SUB,            MSG_NONE                },      //SW3
+                      {MSG_MODE_SW,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                }, //SW4
+                      {MSG_EQ_SW,             MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW5
+                      {MSG_VOL_SUB,           MSG_VOL_SUB,            MSG_VOL_SUB,            MSG_NONE                },      //SW6
+                      {MSG_VOL_ADD,           MSG_VOL_ADD,            MSG_VOL_ADD,            MSG_NONE                },      //SW7
+                      {MSG_REPEAT,            MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW8
+                      {MSG_MUTE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW11
+                      {MSG_NEXT1,             MSG_10TRACK_ADD,        MSG_10TRACK_ADDCP,      MSG_NONE                },      //SW12
+                      {MSG_PREV1,             MSG_10TRACK_SUB,        MSG_10TRACK_SUBCP,      MSG_NONE                },      //SW24
+              #endif
+              
+              #ifdef FUNC_LED_ADC2_KEY_MULTIPLE_EN            
+                      {MSG_NONE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW13  
+                      {MSG_NONE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW14
+                      {MSG_NONE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW15
+                      {MSG_NONE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW16  
+                      {MSG_NEXT,                      MSG_FF_START,           MSG_NONE,                       MSG_FF_FB_END   },      //SW17
+                      {MSG_PRE,                       MSG_FB_START,           MSG_NONE,                       MSG_FF_FB_END   },      //SW18
+                      {MSG_NEXT_FOLDER,       MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW19
+                      {MSG_PRE_FOLDER,        MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW20
+                      {MSG_NEXT1,             MSG_10TRACK_ADD,        MSG_10TRACK_ADDCP,      MSG_NONE                },      //SW21
+                      {MSG_PREV1,             MSG_10TRACK_SUB,        MSG_10TRACK_SUBCP,      MSG_NONE                },      //SW22
+                      {MSG_MUTE,                      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW25
+              #else
+                      {MSG_NEXT,                      MSG_FF_START,           MSG_NONE,                       MSG_FF_FB_END   },      //SW13  
+                      {MSG_PRE,                       MSG_FB_START,           MSG_NONE,                       MSG_FF_FB_END   },      //SW14
+                      {MSG_NEXT_FOLDER,       MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW15
+                      {MSG_PRE_FOLDER,        MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW16  
+                      {MSG_FOLDER_EN,         MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW17
+                      {MSG_MODE_USB,          MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW18
+                      {MSG_MODE_SD,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW19
+                      {MSG_MODE_FM,           MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW20
+                      {MSG_MODE_AUX,          MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW21
+                      {MSG_MODE_MP3,          MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW22
+                      {MSG_UPDATE_FLASH,      MSG_NONE,                       MSG_NONE,                       MSG_NONE                },      //SW25
+              #endif
+              };
+              
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 6   
+
+              #if (defined(FUNC_LED_ADC1_KEY_MULTIPLE_EN) || defined(FUNC_LED_ADC2_KEY_MULTIPLE_EN))
+              //上拉电阻100k
+              BYTE CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   12k (0.35v)     6       7       //SW14
+                      14,     //SW5   20k(0.55v)      10      11      //SW15
+                      19,     //SW6   33k(0.81v)      15      16      //SW16 
+                      23,     //SW7   47k(1.05v)      20      21      //SW17
+                      28,     //SW8   68k(1.33v)      25      26      //SW18  
+                      32,     //SW9   91k(1.58v)      30      31      //SW19
+                      38,     //SW10  120k(1.80v)     34      35      //SW20
+                      43,     //SW11  180k(2.12v)     41      41      //SW21
+                      48,     //SW12  240k(2.33v)     45      45      //SW22
+                      54      //SW24  390k(2.63v)     50      51      //SW25
+              };
+              #else
+              //上拉电阻22k
+              BYTE CODE KeyVal1[ADC_KEY_COUNT] = 
+              { 
+                      3,      //SW3   0               0       0       //SW13
+                      9,      //SW4   2.2k            6       6       //SW14
+                      14,     //SW5   4.7K            11      12      //SW15
+                      19,     //SW6   7.5K            16      17      //SW16
+                      25,     //SW7   12K             22      22      //SW17
+                      30,     //SW8   16K             26      27      //SW18  
+                      36,     //SW9   24K             33      33      //SW19
+                      42,     //SW10  36K             39      39      //SW20
+                      47,     //SW11  51K             44      44      //SW21
+                      54,     //SW12  91K             51      51      //SW22
+                      60      //SW24  220K            57      58      //SW25
+              };
+              #endif
+              #endif
+ 336          
+ 337          #ifdef HEADPHONE_ADC_PORT_CH
+              #ifdef HEADPHONE_ADC_PU_EN
+              //上拉电阻[拔出耳机3.3v，插上耳机1.6v]
+              BYTE CODE KeyVal2[2] = 
+              { 
+                      50,     //SW1   32
+                      66      //SW2   64
+              };
+              #else
+              //下拉电阻[拔出耳机0v，插上耳机1.6v]
+              BYTE CODE KeyVal2[2] = 
+              { 
+                      15,     //SW1   0       
+                      50      //SW2   32
+              };
+              #endif
+              #endif
+ 354          
+ 355          
+ 356          // Key process, image key value to key event.
+ 357          static BYTE     AdcChannelKeyGet(BYTE Channel)                                                  
+ 358          {
+ 359   1              BYTE Val;
+ 360   1              BYTE KeyIndex;
+ 361   1              BYTE KeyCount;
+ 362   1      
+ 363   1      #if (defined(FUNC_LED_ADC1_KEY_MULTIPLE_EN) || defined(FUNC_LED_ADC2_KEY_MULTIPLE_EN))
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 7   
+
+                      Val = AdcReadOneChannel(Channel, ADC_VREF_AVDD33);
+              #else
+ 366   1              Val = (AdcReadOneChannel(Channel, ADC_VREF_AVDD33)
+ 367   1                   + AdcReadOneChannel(Channel, ADC_VREF_AVDD33) 
+ 368   1                       + AdcReadOneChannel(Channel, ADC_VREF_AVDD33) + 2) / 3;        
+ 369   1      #endif
+ 370   1      
+ 371   1      #ifdef HEADPHONE_ADC_PORT_CH
+                      if(Channel == HEADPHONE_ADC_PORT_CH)
+                      {
+                              KeyCount = 2;
+                      }
+                      else
+              #endif
+ 378   1              {
+ 379   2                      KeyCount = ADC_KEY_COUNT;
+ 380   2              }
+ 381   1      
+ 382   1              for(KeyIndex = 0; KeyIndex < KeyCount; KeyIndex++)
+ 383   1              {
+ 384   2      #ifdef HEADPHONE_ADC_PORT_CH
+                              if(Channel == HEADPHONE_ADC_PORT_CH)
+                              {
+                                      if(Val < KeyVal2[KeyIndex])
+                                      {
+                                              return KeyIndex;        
+                                      }
+                              }
+                              else
+              #endif
+ 394   2                      {
+ 395   3                              if(Val < KeyVal1[KeyIndex])
+ 396   3                              {
+ 397   4      #ifdef AU6210K_ZB_BT007_CSR
+ 398   4                                      DBG1(("22222222"));
+ 399   4                                      DBG1(("22222222aaaaaKeyIndex = %d",KeyIndex));
+ 400   4                                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH )
+ 401   4                                      {
+ 402   5                                              switch(KeyIndex)
+ 403   5                                              {
+ 404   6                                              case 1: 
+ 405   6                                                      DBG1(("aaaabbb\n"));
+ 406   6                                                      baGPIOCtrl[GPIO_A_OUT] |= 0x04; //A2
+ 407   6                                                      break;
+ 408   6                                              case 2:
+ 409   6                                                      DBG1(("aaacc\n"));
+ 410   6                                                      baGPIOCtrl[GPIO_A_OUT] |= 0x02; //A1
+ 411   6                                                      break;
+ 412   6                                              case 3:
+ 413   6                                                      DBG1(("aaaddb\n"));
+ 414   6                                                      baGPIOCtrl[GPIO_D_OUT] |= 0x40; //D6
+ 415   6                                                      break;
+ 416   6                                              case 4:
+ 417   6                                                      DBG1(("aaasdf\n"));
+ 418   6                                                      baGPIOCtrl[GPIO_D_OUT] |= 0x20; //D5
+ 419   6                                                      break;
+ 420   6                                              default:
+ 421   6                                                      break;
+ 422   6                                              }
+ 423   5                                      }
+ 424   4      
+ 425   4      #endif
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 8   
+
+ 426   4                              
+ 427   4                              
+ 428   4                                      //DBG(("AdcKeyIndex:%bd\n", KeyIndex));
+ 429   4                                      return KeyIndex;        
+ 430   4                              }
+ 431   3                      }
+ 432   2              }       
+ 433   1              
+ 434   1              return -1;
+ 435   1      }
+ 436          
+ 437          
+ 438          static BYTE GetAdcKeyIndex(VOID)
+ 439          {
+ 440   1              BYTE KeyIndex;
+ 441   1              
+ 442   1              KeyIndex = -1;  
+ 443   1              
+ 444   1      #if (defined(FUNC_LED_ADC1_KEY_MULTIPLE_EN) || defined(FUNC_LED_ADC2_KEY_MULTIPLE_EN))
+                      //段码LED屏与ADC复用示例
+              #if (defined(FUNC_7PIN_SEG_LED_EN) || defined(FUNC_6PIN_SEG_LED_EN))
+                      gLedDispRefreshFlag = FALSE;    
+                      LedPinGpioInit();
+              #endif
+              
+                      //切回ADC 口
+              #ifdef FUNC_LED_ADC1_KEY_MULTIPLE_EN    
+                      baGPIOCtrl[LED_ADC1_KEY_MULTIPLE_PORT_PU] &= ~LED_ADC1_KEY_MULTIPLE_BIT;
+                      baGPIOCtrl[LED_ADC1_KEY_MULTIPLE_PORT_PD] |= LED_ADC1_KEY_MULTIPLE_BIT;         
+              #endif
+              
+              #ifdef FUNC_LED_ADC2_KEY_MULTIPLE_EN
+                      baGPIOCtrl[LED_ADC2_KEY_MULTIPLE_PORT_PU] &= ~LED_ADC2_KEY_MULTIPLE_BIT;
+                      baGPIOCtrl[LED_ADC2_KEY_MULTIPLE_PORT_PD] |= LED_ADC2_KEY_MULTIPLE_BIT;
+              #endif
+              
+                      WaitUs(40); //复用时确保AD端口稳定
+              #endif
+ 464   1      
+ 465   1      #ifdef ADC_KEY_PORT_CH1
+ 466   1              KeyIndex = AdcChannelKeyGet(ADC_KEY_PORT_CH1);
+ 467   1      #endif
+ 468   1      
+ 469   1      #ifdef ADC_KEY_PORT_CH2
+                      if(KeyIndex == -1)
+                      {
+                              KeyIndex = AdcChannelKeyGet(ADC_KEY_PORT_CH2);
+                              if(KeyIndex != -1)
+                              {
+                                      KeyIndex += ADC_KEY_COUNT;
+                              }
+                      }
+              #endif
+ 479   1      
+ 480   1      #if (defined(FUNC_LED_ADC1_KEY_MULTIPLE_EN) || defined(FUNC_LED_ADC2_KEY_MULTIPLE_EN))
+              #if (defined(FUNC_7PIN_SEG_LED_EN) || defined(FUNC_6PIN_SEG_LED_EN))
+                      gLedDispRefreshFlag = TRUE; 
+              #endif
+              #endif
+ 485   1      
+ 486   1      #ifdef HEADPHONE_ADC_PORT_CH
+                      if(KeyIndex == -1)
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 9   
+
+                      {
+                              KeyIndex = AdcChannelKeyGet(HEADPHONE_ADC_PORT_CH);
+                              if(KeyIndex != -1)
+                              {
+                                      KeyIndex += 22;
+                              }
+                      }       
+              #endif
+ 496   1      
+ 497   1              return KeyIndex;
+ 498   1      }
+ 499          
+ 500          
+ 501          // Initialize hardware key scan (GPIO) operation.
+ 502          VOID AdcKeyScanInit(VOID)
+ 503          {
+ 504   1              AdcKeyState = ADC_KEY_STATE_IDLE;
+ 505   1              TimeOutSet(&AdcKeyScanTimer, 0);
+ 506   1              
+ 507   1      #ifdef AU6210K_NR_D_8_CSRBT
+                      SET_B6_ANALOG_IN(); 
+              #endif
+ 510   1      
+ 511   1      #ifdef ADC_KEY_PORT_CH1
+ 512   1      #if (ADC_KEY_PORT_CH1 == ADC_CHANNEL_B6)
+                      SET_B6_ANALOG_IN(); 
+              #endif
+ 515   1      
+ 516   1      #if (ADC_KEY_PORT_CH1 == ADC_CHANNEL_D7) 
+ 517   1              SET_D7_ANALOG_IN();
+ 518   1      #endif
+ 519   1      
+ 520   1      #if (ADC_KEY_PORT_CH1 == ADC_CHANNEL_E0)
+                      SET_E0_ANALOG_IN();
+              #endif
+ 523   1      
+ 524   1      #if (ADC_KEY_PORT_CH1 == ADC_CHANNEL_E1)
+                      SET_E1_ANALOG_IN();
+              #endif
+ 527   1      #endif
+ 528   1      
+ 529   1      #ifdef ADC_KEY_PORT_CH2
+              #if (ADC_KEY_PORT_CH2 == ADC_CHANNEL_B6)
+                      SET_B6_ANALOG_IN();
+              #endif
+              
+              #if (ADC_KEY_PORT_CH2 == ADC_CHANNEL_D7)
+                      SET_D7_ANALOG_IN();
+              #endif
+              
+              #if (ADC_KEY_PORT_CH2 == ADC_CHANNEL_E0)
+                      SET_E0_ANALOG_IN();
+              #endif
+              
+              #if (ADC_KEY_PORT_CH2 == ADC_CHANNEL_E1)
+                      SET_E1_ANALOG_IN();
+              #endif
+              #endif
+ 546   1      
+ 547   1      #ifdef HEADPHONE_ADC_PORT_CH
+              #if (HEADPHONE_ADC_PORT_CH == ADC_CHANNEL_B6)
+                      SET_B6_ANALOG_IN();
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 10  
+
+              #endif
+                      
+              #if (HEADPHONE_ADC_PORT_CH == ADC_CHANNEL_D7)
+                      SET_D7_ANALOG_IN();
+              #endif
+                      
+              #if (HEADPHONE_ADC_PORT_CH == ADC_CHANNEL_E0)
+                      SET_E0_ANALOG_IN();
+              #endif
+                      
+              #if (HEADPHONE_ADC_PORT_CH == ADC_CHANNEL_E1)
+                      SET_E1_ANALOG_IN();
+              #endif
+              #endif
+ 564   1      
+ 565   1      #ifdef AU6210K_ZB_BT007_CSR
+ 566   1              baGPIOCtrl[GPIO_D_IE] &= ~0x20;//D5
+ 567   1              baGPIOCtrl[GPIO_D_OE] |= 0x20;
+ 568   1              baGPIOCtrl[GPIO_D_PU] |= 0x20;
+ 569   1              baGPIOCtrl[GPIO_D_PD] |= 0x20; 
+ 570   1              baGPIOCtrl[GPIO_D_OUT] &= ~0x10; 
+ 571   1              WaitMs(2);
+ 572   1              baGPIOCtrl[GPIO_D_IE] &= ~0x40;//D6
+ 573   1              baGPIOCtrl[GPIO_D_OE] |= 0x40;
+ 574   1              baGPIOCtrl[GPIO_D_PU] |= 0x40;
+ 575   1              baGPIOCtrl[GPIO_D_PD] |= 0x40; 
+ 576   1              baGPIOCtrl[GPIO_D_OUT] &= ~0x40; 
+ 577   1              WaitMs(2);
+ 578   1              baGPIOCtrl[GPIO_A_IE] &= ~0x04;//A2
+ 579   1              baGPIOCtrl[GPIO_A_OE] |= 0x04;
+ 580   1              baGPIOCtrl[GPIO_A_PU] |= 0x04;
+ 581   1              baGPIOCtrl[GPIO_A_PD] |= 0x04; 
+ 582   1              baGPIOCtrl[GPIO_A_OUT] &= ~0x04; 
+ 583   1              WaitMs(2);
+ 584   1              baGPIOCtrl[GPIO_A_IE] &= ~0x02;//A2
+ 585   1              baGPIOCtrl[GPIO_A_OE] |= 0x02;
+ 586   1              baGPIOCtrl[GPIO_A_PU] |= 0x02;
+ 587   1              baGPIOCtrl[GPIO_A_PD] |= 0x02; 
+ 588   1              baGPIOCtrl[GPIO_A_OUT] &= ~0x02; 
+ 589   1              WaitMs(2);
+ 590   1              DBG1(("dfdfd"));
+ 591   1      #endif
+ 592   1      }
+ 593          
+ 594          
+ 595          // Key process, image key value to key event.
+ 596          MESSAGE AdcKeyEventGet(VOID)                                                    
+ 597          {
+ 598   1              static  BYTE PreKeyIndex = -1;
+ 599   1              static  BYTE KeyIndex;
+ 600   1      
+ 601   1              //DBG(("AdcKeyEventGet*******\n"));
+ 602   1              if(!IsTimeOut(&AdcKeyScanTimer))
+ 603   1              {
+ 604   2                      return MSG_NONE;
+ 605   2              }
+ 606   1              TimeOutSet(&AdcKeyScanTimer, ADC_KEY_SCAN_TIME);        
+ 607   1      
+ 608   1              KeyIndex = GetAdcKeyIndex();
+ 609   1      
+ 610   1      #ifdef FUNC_BEEP_SOUND_EN       
+                      gPushKeyNeedBeepFlag = FALSE;
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 11  
+
+              #endif
+ 613   1      
+ 614   1              switch(AdcKeyState)
+ 615   1              {
+ 616   2                      case ADC_KEY_STATE_IDLE:
+ 617   2                              if(KeyIndex == -1)
+ 618   2                              {
+ 619   3      #ifdef AU6210K_ZB_BT007_CSR
+ 620   3                                      baGPIOCtrl[GPIO_D_OUT] &= ~0x20;        
+ 621   3                                      baGPIOCtrl[GPIO_D_OUT] &= ~0x40;        
+ 622   3                                      baGPIOCtrl[GPIO_A_OUT] &= ~0x04;        
+ 623   3                                      baGPIOCtrl[GPIO_A_OUT] &= ~0x02;        
+ 624   3      #endif                          
+ 625   3                                      return MSG_NONE;
+ 626   3                              }
+ 627   2      
+ 628   2                              PreKeyIndex = KeyIndex;
+ 629   2                              TimeOutSet(&AdcKeyWaitTimer, ADC_KEY_JTTER_TIME);
+ 630   2                              //DBG(("GOTO JITTER!\n"));
+ 631   2                              AdcKeyState = ADC_KEY_STATE_JITTER;
+ 632   2                                      
+ 633   2                      case ADC_KEY_STATE_JITTER:
+ 634   2                              if(PreKeyIndex != KeyIndex)
+ 635   2                              {
+ 636   3                                      //DBG(("%bx != %bx,GOTO IDLE Because jitter!\n", PreKeyIndex, KeyIndex));
+ 637   3                                      AdcKeyState = ADC_KEY_STATE_IDLE;
+ 638   3                              }
+ 639   2                              else if(IsTimeOut(&AdcKeyWaitTimer))
+ 640   2                              {
+ 641   3                                      //DBG(("GOTO PRESS_DOWN!\n"));
+ 642   3      //                              if((PreKeyIndex == ADC_KEY_POWER0_IDX)  
+ 643   3      //                              ||(PreKeyIndex == ADC_KEY_POWER1_IDX)
+ 644   3      //                              || (PreKeyIndex == ADC_KEY_POWER2_IDX)                          
+ 645   3      //                              )
+ 646   3      //                              {        
+ 647   3      //                                      //set cp-time 3000ms for power-down key 
+ 648   3      //                                      TimeOutSet(&AdcKeyWaitTimer, ADC_KEY_PWRDOWN_CP_TIME);  
+ 649   3      //                              }       
+ 650   3      
+ 651   3      #ifdef HEADPHONE_ADC_PORT_CH
+                                              if(PreKeyIndex == ADC_KEY_HPPUSHOUT_IDX)
+                                              {
+                                                      TimeOutSet(&AdcKeyWaitTimer, ADC_KEY_HPPUSHOUT_CP_TIME);
+                                              }
+                                              else
+              #endif                          
+ 658   3                                      {
+ 659   4                                              //DBG(("ADC_KEY_CP_TIME!\n"));
+ 660   4                                              TimeOutSet(&AdcKeyWaitTimer, ADC_KEY_CP_TIME);
+ 661   4                                      }
+ 662   3                                      AdcKeyState = ADC_KEY_STATE_PRESS_DOWN;
+ 663   3                              }
+ 664   2                              break;
+ 665   2      
+ 666   2                      case ADC_KEY_STATE_PRESS_DOWN:
+ 667   2                              if(PreKeyIndex != KeyIndex)
+ 668   2                              {
+ 669   3                                      //return key sp value
+ 670   3                                      //DBG(("KEY  SP  %bu\n",PreKeyIndex));
+ 671   3                                      AdcKeyState = ADC_KEY_STATE_IDLE;
+ 672   3      #ifdef FUNC_BEEP_SOUND_EN       
+                                              gPushKeyNeedBeepFlag = TRUE;
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 12  
+
+              #endif
+ 675   3      
+ 676   3      #ifdef HEADPHONE_ADC_PORT_CH
+                                              if((PreKeyIndex == ADC_KEY_HPPUSHIN_IDX) || (PreKeyIndex == ADC_KEY_HPPUSHOUT_IDX))
+                                              {
+                                                      break;
+                                              }
+              #endif
+ 682   3      
+ 683   3      #if 0 //def AU6210K_ZB_BT007_CSR
+                                              if(PreKeyIndex != 1)
+                                              switch(PreKeyIndex)
+                                              {
+                                              case 1:                                         
+                                                      baGPIOCtrl[GPIO_A_OUT] &= ~0x04; //A2
+                                                      break;
+                                              case 2:
+                                                      baGPIOCtrl[GPIO_A_OUT] &= ~0x02; //A1
+                                                      break;
+                                              case 3:
+                                                      baGPIOCtrl[GPIO_D_OUT] &= ~0x40; //D6
+                                                      break;
+                                              case 4:
+                                                      baGPIOCtrl[GPIO_D_OUT] &= ~0x20; //D5
+                                                      break;
+                                              default:
+                                                      break;
+                                              }
+              
+              #endif
+ 704   3      
+ 705   3                                      return AdcKeyEvent[PreKeyIndex][0];
+ 706   3                              }
+ 707   2                              else if(IsTimeOut(&AdcKeyWaitTimer))
+ 708   2                              {
+ 709   3                                      //return key cp value
+ 710   3                                      //DBG(("KEY CPS  %bu\n",PreKeyIndex));
+ 711   3                                      TimeOutSet(&AdcKeyWaitTimer, ADC_KEY_CPH_TIME);
+ 712   3                                      AdcKeyState = ADC_KEY_STATE_CP;
+ 713   3      #ifdef FUNC_BEEP_SOUND_EN       
+                                              gPushKeyNeedBeepFlag = TRUE;
+              #endif
+ 716   3      
+ 717   3      #ifdef HEADPHONE_ADC_PORT_CH
+                                              if(PreKeyIndex == ADC_KEY_HPPUSHIN_IDX) 
+                                              {                                       
+                                                      break;
+                                              }
+                                              if(PreKeyIndex == ADC_KEY_HPPUSHOUT_IDX)
+                                              {
+                                                      IsHeadphoneLinkFlag = FALSE;
+                                                      break;
+                                              }
+              #endif
+ 728   3                                      return AdcKeyEvent[PreKeyIndex][1];
+ 729   3                              }
+ 730   2                              break;
+ 731   2      
+ 732   2                      case ADC_KEY_STATE_CP:
+ 733   2                              if(PreKeyIndex != KeyIndex)
+ 734   2                              {
+ 735   3                                      //return key cp value
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 13  
+
+ 736   3                                      //DBG(("ADC KEY CPR!\n"));
+ 737   3                                      AdcKeyState = ADC_KEY_STATE_IDLE;                               
+ 738   3      #ifdef HEADPHONE_ADC_PORT_CH
+                                              if((PreKeyIndex == ADC_KEY_HPPUSHIN_IDX) || (PreKeyIndex == ADC_KEY_HPPUSHOUT_IDX))
+                                              {
+                                                      break;
+                                              }
+              #endif
+ 744   3                                      return AdcKeyEvent[PreKeyIndex][3];
+ 745   3                              }
+ 746   2                              else if(IsTimeOut(&AdcKeyWaitTimer))
+ 747   2                              {
+ 748   3                                      //return key cph value
+ 749   3                                      //DBG(("ADC KEY CPH!\n"));
+ 750   3      //                              if((PreKeyIndex == ADC_KEY_POWER0_IDX)  
+ 751   3      //                              ||(PreKeyIndex == ADC_KEY_POWER1_IDX)
+ 752   3      //                              || (PreKeyIndex == ADC_KEY_POWER2_IDX))
+ 753   3      //                              {        
+ 754   3      //                                      //set cp-time 3000ms for power-down key 
+ 755   3      //                                      //DBG(("ADC POWER!\n"));
+ 756   3      //                                      TimeOutSet(&AdcKeyWaitTimer, 3000);
+ 757   3      //                              }
+ 758   3      //                              else
+ 759   3      //                              {
+ 760   3                                              TimeOutSet(&AdcKeyWaitTimer, ADC_KEY_CPH_TIME);
+ 761   3      //                              }
+ 762   3      #ifdef HEADPHONE_ADC_PORT_CH
+                                              if(PreKeyIndex == ADC_KEY_HPPUSHIN_IDX)
+                                              {
+                                                      IsHeadphoneLinkFlag = TRUE;
+                                                      break;
+                                              }
+                                              else if(PreKeyIndex == ADC_KEY_HPPUSHOUT_IDX)
+                                              {
+                                                      IsHeadphoneLinkFlag = FALSE;
+                                                      break;
+                                              }
+              #endif
+ 774   3                                      return AdcKeyEvent[PreKeyIndex][2];
+ 775   3                              }
+ 776   2                              break;
+ 777   2      
+ 778   2                      default:
+ 779   2                              AdcKeyState = ADC_KEY_STATE_IDLE;
+ 780   2                              break;
+ 781   2              }
+ 782   1              return MSG_NONE;
+ 783   1      }
+ 784          
+ 785          
+ 786          #else
+                      #warning        "MV: ADC KEY NOT ENABLE!"
+                      
+              #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    773    ----
+   CONSTANT SIZE    =     30    ----
+   XDATA SIZE       =     13       1
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+C51 COMPILER V9.00   ADC_KEY                                                               05/16/2015 15:55:48 PAGE 14  
+
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

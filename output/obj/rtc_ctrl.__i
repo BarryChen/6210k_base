@@ -1,0 +1,1 @@
+"device\rtc_ctrl.c" LARGE OBJECTADVANCED OPTIMIZE (9,SIZE) BROWSE INCDIR(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\rtc_ctrl.lst) OBJECT(.\output\obj\rtc_ctrl.obj)

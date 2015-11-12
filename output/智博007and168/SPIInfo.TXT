@@ -1,0 +1,35 @@
+************************************************************
+* Mvsilicon SPI File Blender V1.00
+* SpiDevCustomerId: 55aa01fe
+* Total 30 Files,MP3 Files:30,Txt Files:0,Other Files:0.
+************************************************************
+0001 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\0.mp3,fileSize:19396.
+0002 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\1.mp3,fileSize:18560.
+0003 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\2.mp3,fileSize:18560.
+0004 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\3.mp3,fileSize:19396.
+0005 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\4.mp3,fileSize:20232.
+0006 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\5.mp3,fileSize:19814.
+0007 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\6.mp3,fileSize:19814.
+0008 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\7.mp3,fileSize:21068.
+0009 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\8.mp3,fileSize:18978.
+0010 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\9.mp3,fileSize:21904.
+0011 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\配对模式已开启.mp3,fileSize:41966.
+0012 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\进入AUX音频输入模式.mp3,fileSize:62864.
+0013 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\进入TF播放模式.mp3,fileSize:51161.
+0014 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\三全音.mp3,fileSize:13791.
+0015 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\电量不足请充电_ch.mp3,fileSize:37582.
+0016 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0017 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0018 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0019 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0020 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0021 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\最大音量.mp3,fileSize:29009.
+0022 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\最小音量.mp3,fileSize:29845.
+0023 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0024 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0025 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0026 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0027 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.
+0028 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\三全音.mp3,fileSize:13791.
+0029 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\三全音.mp3,fileSize:13791.
+0030 :F:\MVsion\6210\cc-e\芯聚\烧录工具\SPI Flash Tool\智博QCY语音\dtmf-0.mp3,fileSize:7986.

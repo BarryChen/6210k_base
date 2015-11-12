@@ -1,0 +1,566 @@
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN .\output\obj\key.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE key\key.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(.\config;
+                    -.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\bluetoot
+                    -h;.\i2c) DEBUG PRINT(.\output\lst\key.lst) OBJECT(.\output\obj\key.obj)
+
+line level    source
+
+   1          #include <reg51.h>
+   2          
+   3          #include "type.h"
+   4          #include "syscfg.h"
+   5          #include "utility.h"
+   6          #include "ir_key.h"
+   7          #include "adc_key.h"
+   8          #include "sysctrl.h"
+   9          #include "message.h"
+  10          #include "timer.h"
+  11          #include "power_key.h"
+  12          #include "key.h"
+  13          #include "radio_ctrl.h"
+  14          #include "debug.h"
+  15          #include "gpio_key.h"
+  16          #include "display.h"
+  17          #include "coding_key.h"
+  18          #include "touch_key.h"
+  19          #include "spi_fs.h"
+  20          #include "bt.h"
+  21          
+  22          
+  23          #ifdef  FUNC_NUMBER_KEY_EN
+  24          #define  IR_KEY_NUM_WAIT_TIME  2000
+  25          #define  IR_KEY_NUM_FILL_ZERO_WAIT_TIME  1000
+  26          
+  27          extern BOOL BTPowerOffTime_Start;
+  28          extern TIMER   CSR_BTPOWEROFF_TIME;
+  29          
+  30          extern BOOL SDCARDPowerOffTime_Start;
+  31          extern TIMER   SDCARDPOWEROFF_TIME;
+  32          
+  33          
+  34          BOOL    gIRNUM10FG = 0;
+  35          WORD    gRecvNum = 0;
+  36          TIMER   RecvNumTimer;
+  37          BOOL NumKeyRadioFreqErrorFlag = FALSE;
+  38          BOOL NumKeyErrorDispFlag = FALSE;
+  39          #endif
+  40          
+  41          extern VOID UnMute(VOID);
+  42          extern VOID MuteOn(BOOL DacMuteEn, BOOL ExMuteEn);
+  43          #ifdef FUNC_IR_KEY_EN
+  44          static BOOL IrIsOn = TRUE;
+  45          #endif
+  46          
+  47          #ifdef FUNC_TOUCH_KEY_EN
+              extern TIMER TouchKeyInitTimer;
+              #endif
+  50          
+  51          extern BOOL GetBtMuteFlag();
+  52          
+  53          #ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 2   
+
+  54          BOOL GetIrIsOn(void)
+  55          {
+  56   1              return IrIsOn;
+  57   1      }
+  58          #endif
+  59          #ifdef FUNC_BLUETOOTH_CSR_EN
+  60          MESSAGE IsDoubleClick(MESSAGE event)
+  61          {
+  62   1              TIMER DoubleClickTimer;
+  63   1              static BYTE ClickNum = 0;
+  64   1      #ifdef AU6210K_ZB_BT007_CSR
+  65   1              if (event == MSG_BLUETOOTH_ANSWER)
+  66   1      #else
+                      if (event == MSG_PLAY_PAUSE)
+              #endif          
+  69   1              {
+  70   2                      if (ClickNum >= 2)
+  71   2                              ClickNum = 0;
+  72   2                      ClickNum++;
+  73   2      
+  74   2                      if (ClickNum == 1)
+  75   2                      {
+  76   3                              TimeOutSet(&DoubleClickTimer,500);
+  77   3                      }
+  78   2              }
+  79   1              if (!IsTimeOut(&DoubleClickTimer) && ClickNum == 1)
+  80   1              {
+  81   2                      event = MSG_NONE;
+  82   2              }
+  83   1              else if (!IsTimeOut(&DoubleClickTimer) && ClickNum == 2)
+  84   1              {
+  85   2                      event = MSG_BT_RECALL;
+  86   2                      ClickNum = 0;
+  87   2              }
+  88   1              else if(IsTimeOut(&DoubleClickTimer) && ClickNum == 1)
+  89   1              {
+  90   2                              
+  91   2      #ifdef AU6210K_ZB_BT007_CSR
+  92   2                      event = MSG_BLUETOOTH_ANSWER;
+  93   2      #else
+                              event = MSG_PLAY_PAUSE;
+              #endif  
+  96   2                      ClickNum = 0;
+  97   2      #if defined(AU6210K_ZB_BT007_CSR) && defined(AU6210K_ZB_BT007_IR_IC_IS_334M_CSR)//juest using 168
+  98   2                      if(GetIrIsOn())
+  99   2                      {
+ 100   3                              SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 0);
+ 101   3                              if(gSys.SystemMode == SYS_MODE_BLUETOOTH && !GetBtMuteFlag())
+ 102   3                              {
+ 103   4                              DBG1(("ccccccccddddddddddddd\m"));
+ 104   4                                      UnMute();
+ 105   4                              }
+ 106   3                      }
+ 107   2      #endif          
+ 108   2      
+ 109   2              }
+ 110   1      
+ 111   1              return event;
+ 112   1      }    
+ 113          #endif
+ 114          
+ 115          static MESSAGE GetKeyEventA(VOID)                                                       
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 3   
+
+ 116          {
+ 117   1              MESSAGE Event = MSG_NONE;
+ 118   1      #if     (PWR_KEY_MODE == PWR_KEY_PUSH_BUTTON)
+                      if(Event == MSG_NONE)
+                      {
+                              Event = PowerKeyEventGet();
+                      }
+              #endif
+ 124   1      
+ 125   1      #ifdef FUNC_ADC_KEY_EN
+ 126   1              if(Event == MSG_NONE)
+ 127   1              {
+ 128   2                      Event = AdcKeyEventGet();
+ 129   2      #if 0//def FUNC_BLUETOOTH_CSR_EN
+                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH)
+                                      Event = IsDoubleClick(Event);
+              #endif
+ 133   2      #ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+ 134   2                              
+ 135   2                              if(!IrIsOn && (Event != MSG_IR_ON_OFF))
+ 136   2                              {
+ 137   3      #ifdef FUNC_SPI_KEY_SOUND_EN    
+ 138   3                                      if(Event != MSG_NONE)
+ 139   3                                      {
+ 140   4                                              SPI_PlaySelectNum(SPIPLAY_SONG_LOCKING, 1);
+ 141   4                                      }
+ 142   3      #endif
+ 143   3              
+ 144   3                                      Event = MSG_NONE;
+ 145   3                              }
+ 146   2                              if(Event == MSG_IR_ON_OFF)
+ 147   2                              {
+ 148   3                                      if(IrIsOn)
+ 149   3                                      {
+ 150   4                                              IrIsOn = FALSE;
+ 151   4                                              
+ 152   4      #ifdef FUNC_SPI_KEY_SOUND_EN
+ 153   4                                              if(gSys.MuteFg)
+ 154   4                                                      SPI_PlaySelectNum(SPIPLAY_SONG_LOCK_ON, 0);                     
+ 155   4                                              else
+ 156   4                                                      SPI_PlaySelectNum(SPIPLAY_SONG_LOCK_ON, 1);
+ 157   4      #endif
+ 158   4                                      }
+ 159   3                                      else
+ 160   3                                      {
+ 161   4                                              IrIsOn = TRUE;
+ 162   4                                              
+ 163   4      #ifdef FUNC_SPI_KEY_SOUND_EN
+ 164   4                                              if(gSys.MuteFg)
+ 165   4                                                      SPI_PlaySelectNum(SPIPLAY_SONG_LOCK_OFF, 0);                    
+ 166   4                                              else
+ 167   4                                                      SPI_PlaySelectNum(SPIPLAY_SONG_LOCK_OFF, 1);
+ 168   4      #endif
+ 169   4                                      }
+ 170   3                                      baGPIOCtrl[GPIO_A_OUT] &= ~0x40; //A2
+ 171   3                                      WaitMs(500);
+ 172   3                                      
+ 173   3                              }
+ 174   2                              if(Event != MSG_IR_ON_OFF && Event != MSG_NONE && Event != MSG_VOL_ADD && Event != MSG_VOL_SUB)
+ 175   2                              {
+ 176   3                                      if(Event == MSG_MODE_SW)
+ 177   3                                      {
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 4   
+
+ 178   4                                              SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 0);
+ 179   4                                              MuteOn(TRUE,FALSE);
+ 180   4                                      }else
+ 181   3                                      {
+ 182   4                                              if(gSys.SystemMode == SYS_MODE_BLUETOOTH)
+ 183   4                                              {       
+ 184   5                                                      if((Event != MSG_VOL_ADD) && (Event != MSG_VOL_SUB)&&(Event != MSG_BLUETOOTH_REJECT)&& Event != MSG_
+             -BLUETOOTH_ANSWER)
+ 185   5                                                              SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 0);
+ 186   5                                              }
+ 187   4                                              else
+ 188   4                                              {
+ 189   5                                                      if(Event == MSG_PLAY_PAUSE)// || Event == MSG_NEXT || Event == MSG_PRE)
+ 190   5                                                              SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 0);
+ 191   5                                                      else
+ 192   5                                                              SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 1);
+ 193   5                                              }
+ 194   4                                              if(gSys.SystemMode == SYS_MODE_BLUETOOTH && !GetBtMuteFlag())
+ 195   4                                              {
+ 196   5                                                      DBG1(("ccccccccddddddddddddd\m"));
+ 197   5                                                      UnMute();
+ 198   5                                              }
+ 199   4                                      }
+ 200   3                              }
+ 201   2                              
+ 202   2                              /*if(Event == MSG_V_ADD)
+ 203   2                                      Event = MSG_VOL_ADD;
+ 204   2                              if(Event == MSG_V_SUB)
+ 205   2                                      Event = MSG_VOL_SUB;*/
+ 206   2                              if(Event == MSG_BT_REJECT)
+ 207   2                                      Event =MSG_BLUETOOTH_REJECT;
+ 208   2              
+ 209   2      #endif                  
+ 210   2                      
+ 211   2              }
+ 212   1      #endif
+ 213   1      
+ 214   1      #ifdef FUNC_CODING_KEY_EN
+                      if(Event == MSG_NONE)
+                      {
+                              Event = CodingKeyEventGet();
+                      }
+              #endif
+ 220   1      
+ 221   1      #ifdef FUNC_TOUCH_KEY_EN
+                      if(Event == MSG_NONE)
+                      {
+                              Event = TouchKeyEventGet();
+                      }
+              #endif
+ 227   1              
+ 228   1      #ifdef FUNC_IR_KEY_EN
+ 229   1              if(Event == MSG_NONE)
+ 230   1              {
+ 231   2                      Event = IrKeyEventGet();
+ 232   2      #ifdef FUNC_BLUETOOTH_CSR_EN
+ 233   2              if(gSys.SystemMode == SYS_MODE_BLUETOOTH)
+ 234   2                              Event = IsDoubleClick(Event);
+ 235   2      
+ 236   2      #endif
+ 237   2      #ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+ 238   2                      
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 5   
+
+ 239   2                      if(!IrIsOn && (Event != MSG_IR_ON_OFF))
+ 240   2                      {
+ 241   3      #ifdef FUNC_SPI_KEY_SOUND_EN    
+ 242   3                              if(Event != MSG_NONE)
+ 243   3                              {
+ 244   4                                      SPI_PlaySelectNum(SPIPLAY_SONG_LOCKING, 1);
+ 245   4                              }
+ 246   3      #endif
+ 247   3      
+ 248   3                              Event = MSG_NONE;
+ 249   3                      }
+ 250   2                      if(Event == MSG_IR_ON_OFF)
+ 251   2                      {
+ 252   3                              if(IrIsOn)
+ 253   3                              {
+ 254   4                                      IrIsOn = FALSE;
+ 255   4                                      
+ 256   4      #ifdef FUNC_SPI_KEY_SOUND_EN
+ 257   4                                      if(gSys.MuteFg)
+ 258   4                                              SPI_PlaySelectNum(SPIPLAY_SONG_LOCK_ON, 0);                     
+ 259   4                                      else
+ 260   4                                              SPI_PlaySelectNum(SPIPLAY_SONG_LOCK_ON, 1);
+ 261   4      #endif
+ 262   4                              }
+ 263   3                              else
+ 264   3                              {
+ 265   4                                      IrIsOn = TRUE;
+ 266   4                                      
+ 267   4      #ifdef FUNC_SPI_KEY_SOUND_EN
+ 268   4                                      if(gSys.MuteFg)
+ 269   4                                              SPI_PlaySelectNum(SPIPLAY_SONG_LOCK_OFF, 0);                    
+ 270   4                                      else
+ 271   4                                              SPI_PlaySelectNum(SPIPLAY_SONG_LOCK_OFF, 1);
+ 272   4      #endif
+ 273   4                              }
+ 274   3                              baGPIOCtrl[GPIO_A_OUT] &= ~0x40; //A2
+ 275   3                              WaitMs(500);
+ 276   3                              
+ 277   3                      }
+ 278   2                      if(Event != MSG_IR_ON_OFF && Event != MSG_NONE && Event != MSG_VOL_ADD && Event != MSG_VOL_SUB)
+ 279   2                      {
+ 280   3                              if(Event == MSG_MODE_SW)
+ 281   3                              {
+ 282   4                                      SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 0);
+ 283   4                                      MuteOn(TRUE,FALSE);
+ 284   4                              }else
+ 285   3                              {
+ 286   4                                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH)
+ 287   4                                      {       
+ 288   5                                              if((Event != MSG_VOL_ADD) && (Event != MSG_VOL_SUB)&&(Event != MSG_BLUETOOTH_REJECT)&& Event != MSG_B
+             -LUETOOTH_ANSWER)
+ 289   5                                                      SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 0);
+ 290   5                                      }
+ 291   4                                      else
+ 292   4                                      {
+ 293   5                                              if(Event == MSG_PLAY_PAUSE)// || Event == MSG_NEXT || Event == MSG_PRE)
+ 294   5                                                      SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 0);
+ 295   5                                              else
+ 296   5                                                      SPI_PlaySelectNum(SPIPLAY_SONG_IR_KEY, 1);
+ 297   5                                      }
+ 298   4                                      if(gSys.SystemMode == SYS_MODE_BLUETOOTH && !GetBtMuteFlag())
+ 299   4                                      {
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 6   
+
+ 300   5                                              DBG1(("ccccccccddddddddddddd\m"));
+ 301   5                                              UnMute();
+ 302   5                                      }
+ 303   4                              }
+ 304   3                      }
+ 305   2                      
+ 306   2                      /*if(Event == MSG_V_ADD)
+ 307   2                              Event = MSG_VOL_ADD;
+ 308   2                      if(Event == MSG_V_SUB)
+ 309   2                              Event = MSG_VOL_SUB;*/
+ 310   2                      if(Event == MSG_BT_REJECT)
+ 311   2                              Event =MSG_BLUETOOTH_REJECT;
+ 312   2      
+ 313   2      #endif                  
+ 314   2                      
+ 315   2              }
+ 316   1      #endif
+ 317   1      
+ 318   1      #ifdef FUNC_GPIO_KEY_EN
+                      if(Event == MSG_NONE)
+                      {
+                              Event = GpioKeyEventGet();
+                      }
+              #endif
+ 324   1      
+ 325   1              return Event;                                                                   //cache key value for respective module
+ 326   1      }
+ 327          
+ 328          
+ 329          // Initialize key scan operation.
+ 330          VOID KeyScanInit(VOID)
+ 331          {
+ 332   1      #if     (PWR_KEY_MODE == PWR_KEY_PUSH_BUTTON)
+                      PowerKeyScanInit();
+              #endif
+ 335   1      
+ 336   1      #ifdef FUNC_ADC_KEY_EN
+ 337   1              AdcKeyScanInit();
+ 338   1      #endif
+ 339   1      
+ 340   1      #ifdef FUNC_CODING_KEY_EN
+                      CodingKeyScanInit();
+              #endif
+ 343   1      
+ 344   1      #ifdef FUNC_TOUCH_KEY_EN
+                      TouchKeyScanInit();
+                      TimeOutSet(&TouchKeyInitTimer, 5000);
+              #endif
+ 348   1      
+ 349   1      #ifdef FUNC_IR_KEY_EN
+ 350   1              IrKeyScanInit();
+ 351   1      #endif
+ 352   1      
+ 353   1      #ifdef  FUNC_GPIO_KEY_EN
+                      GpioKeyScanInit();
+              #endif
+ 356   1      
+ 357   1      #ifdef  FUNC_NUMBER_KEY_EN
+ 358   1              gRecvNum = 0;
+ 359   1              TimeOutSet(&RecvNumTimer, 0);
+ 360   1      #endif
+ 361   1      }
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 7   
+
+ 362          
+ 363          
+ 364          
+ 365          #ifdef  FUNC_NUMBER_KEY_EN
+ 366          VOID RecvIrNum(BYTE num)
+ 367          {       
+ 368   1              if(gRecvNum < 1000)
+ 369   1              {
+ 370   2                      gRecvNum = (gRecvNum * 10) + num;
+ 371   2              }       
+ 372   1              else
+ 373   1              {
+ 374   2                      gRecvNum = num;
+ 375   2              }
+ 376   1      }
+ 377          #endif
+ 378          
+ 379          
+ 380          // Key process
+ 381          VOID KeyEventGet(VOID)                                                  
+ 382          {
+ 383   1              MESSAGE Event = GetKeyEventA();         
+ 384   1      
+ 385   1      #if defined(AU6210K_ZB_BT007_CSR)
+ 386   1              if(Event != MSG_NONE)
+ 387   1              {
+ 388   2                      TimeOutSet(&CSR_BTPOWEROFF_TIME, BT_BtPOWEROFF_TIME);
+ 389   2                      //BTPowerOffTime_Start =        FALSE;
+ 390   2      
+ 391   2      
+ 392   2                      TimeOutSet(&SDCARDPOWEROFF_TIME, BT_BtPOWEROFF_TIME);
+ 393   2                      //SDCARDPowerOffTime_Start = FALSE;
+ 394   2              }
+ 395   1      #endif
+ 396   1      
+ 397   1      #ifdef FUNC_NUMBER_KEY_EN
+ 398   1              if(NumKeyErrorDispFlag == TRUE)
+ 399   1              {               
+ 400   2      #ifdef FUNC_DISP_EN
+ 401   2                      DispNum(gRecvNum);
+ 402   2      #endif          
+ 403   2              }
+ 404   1      
+ 405   1              if((gRecvNum) && ((IsTimeOut(&RecvNumTimer)) || (Event == MSG_IR_SELECT)))
+ 406   1              {
+ 407   2                      TimeOutSet(&RecvNumTimer, SET_INTERVL);         
+ 408   2                      Event = MSG_RECV_NUM;   
+ 409   2                      NumKeyErrorDispFlag = FALSE;
+ 410   2              }        
+ 411   1              else if((Event >= MSG_NUM_0) && (Event <= MSG_NUM_10ADD))
+ 412   1              {
+ 413   2                      if(((gSys.SystemMode == SYS_MODE_USB) || (gSys.SystemMode == SYS_MODE_SD))
+ 414   2              #ifdef FUNC_RADIO_EN
+                              || ((gSys.SystemMode == SYS_MODE_RADIO)&&(gRadioCtrl.State == RADIO_IDLE))
+                      #endif
+ 417   2                      )
+ 418   2                      {               
+ 419   3                              NumKeyErrorDispFlag = FALSE;                    
+ 420   3                              NumKeyRadioFreqErrorFlag = FALSE;
+ 421   3                              
+ 422   3                              if(Event == MSG_NUM_10ADD)
+ 423   3                              {
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 8   
+
+ 424   4                                      if(gRecvNum % 10)
+ 425   4                                      {
+ 426   5                                      gRecvNum = 0;
+ 427   5                                      }
+ 428   4                                  gRecvNum += 10;
+ 429   4                                  gIRNUM10FG = 1;
+ 430   4                              }
+ 431   3                              else
+ 432   3                              {
+ 433   4                                      if(gIRNUM10FG)
+ 434   4                                      {
+ 435   5                                              gRecvNum += Event - MSG_NUM_0;
+ 436   5                                      }
+ 437   4                                      else
+ 438   4                                      {
+ 439   5                                              RecvIrNum(Event - MSG_NUM_0);
+ 440   5                                      }
+ 441   4                                      gIRNUM10FG = 0;
+ 442   4                              }
+ 443   3                              Event = MSG_NONE;
+ 444   3                              TimeOutSet(&RecvNumTimer, IR_KEY_NUM_WAIT_TIME);
+ 445   3                      #ifdef FUNC_DISP_EN
+ 446   3                              DispNum(gRecvNum);
+ 447   3                      #endif
+ 448   3                      }
+ 449   2                      else
+ 450   2                      {
+ 451   3                              Event = MSG_NONE;
+ 452   3                      }
+ 453   2              }
+ 454   1              else if((Event >= MSG_NUM_0CP) && (Event <= MSG_NUM_10ADDCP))
+ 455   1              {
+ 456   2                      if(((gSys.SystemMode == SYS_MODE_USB) || (gSys.SystemMode == SYS_MODE_SD))
+ 457   2              #ifdef FUNC_RADIO_EN
+                              || ((gSys.SystemMode == SYS_MODE_RADIO) && (gRadioCtrl.State == RADIO_IDLE))
+                      #endif
+ 460   2                      )
+ 461   2                      {               
+ 462   3                              NumKeyErrorDispFlag = FALSE;
+ 463   3                              NumKeyRadioFreqErrorFlag = FALSE;
+ 464   3                              
+ 465   3                              TimeOutSet(&RecvNumTimer, SET_INTERVL);
+ 466   3                              if(Event == MSG_NUM_10ADDCP)
+ 467   3                              {
+ 468   4                                      gRecvNum += 10;
+ 469   4                              }
+ 470   3                              else
+ 471   3                              {
+ 472   4                                      RecvIrNum(Event - MSG_NUM_0CP);
+ 473   4                              }
+ 474   3                      #ifdef FUNC_DISP_EN
+ 475   3                              DispNum(gRecvNum);
+ 476   3                      #endif
+ 477   3      
+ 478   3                              if((((gSys.SystemMode == SYS_MODE_USB) || (gSys.SystemMode == SYS_MODE_SD)) 
+ 479   3                              && (gRecvNum <= gFsInfo.FileSum))
+ 480   3                      #ifdef FUNC_RADIO_EN
+                                       || ((gSys.SystemMode == SYS_MODE_RADIO) && (gRadioCtrl.State == RADIO_IDLE) && (gRecvNum <= MAX_RAD
+             -IO_STATION_NUM))
+                              #endif
+ 483   3                              )
+ 484   3                              {
+C51 COMPILER V9.00   KEY                                                                   05/16/2015 16:06:01 PAGE 9   
+
+ 485   4                                      Event = MSG_NUM_SAVE_STAITON;   //FM: 将当前频率存到指定的台号，如果台号>StationSum，就存到(StationSum+1
+             -)台。
+ 486   4                                                                                                      //MP3:数字选歌
+ 487   4                              }
+ 488   3                              else                    
+ 489   3                              {
+ 490   4                                      Event = MSG_NONE;
+ 491   4                              }
+ 492   3                      }
+ 493   2              }
+ 494   1              else
+ 495   1              {
+ 496   2                      if(Event != MSG_NONE)
+ 497   2                      {
+ 498   3                              gRecvNum = 0;                           
+ 499   3                              NumKeyErrorDispFlag = FALSE;
+ 500   3                              NumKeyRadioFreqErrorFlag = FALSE;
+ 501   3                      }
+ 502   2              }
+ 503   1      #endif
+ 504   1      
+ 505   1              if(Event != MSG_NONE)
+ 506   1              {
+ 507   2                      //DBG(("KeyEvent:%02BX\n", Event));
+ 508   2                      MessageSend(MSG_FIFO_KEY, Event);
+ 509   2                      MessageSend(MSG_FIFO_DEV_CTRL, Event);          
+ 510   2      #ifdef  FUNC_RTC_EN
+                              MessageSend(MSG_FIFO_RTC, Event);       
+              #endif
+ 513   2              }       
+ 514   1      
+ 515   1      }
+ 516          
+ 517          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1513    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     12       8
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,90 @@
+### uVision2 Project, (C) Keil Software
+### Do not modify !
+
+ cExt (*.c)
+ aExt (*.s*; *.src; *.a*)
+ oExt (*.obj)
+ lExt (*.lib)
+ tExt (*.txt; *.h; *.inc)
+ pExt (*.plm)
+ CppX (*.cpp)
+ DaveTm { 0,0,0,0,0,0,0,0 }
+
+Target (MVs6210_R1_src), 0x0000 // Tools: 'MCS-51'
+GRPOPT 1,(config),1,0,0
+GRPOPT 2,(lib_if),0,0,0
+GRPOPT 3,(library),1,0,0
+GRPOPT 4,(device),1,0,0
+GRPOPT 5,(fs),0,0,0
+GRPOPT 6,(play),0,0,0
+GRPOPT 7,(system),0,0,0
+GRPOPT 8,(key),0,0,0
+GRPOPT 9,(eeprom),0,0,0
+GRPOPT 10,(display),0,0,0
+GRPOPT 11,(radio),1,0,0
+GRPOPT 12,(spi_flash),0,0,0
+GRPOPT 13,(document),0,0,0
+
+OPTFFF 1,1,5,0,0,34,60,0,<.\config\syscfg.h><syscfg.h> { 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,252,255,255,255,226,255,255,255,0,0,0,0,0,0,0,0,39,3,0,0,156,1,0,0 }
+OPTFFF 2,2,1,0,0,0,0,0,<.\lib_if\clk_if.c><clk_if.c> 
+OPTFFF 2,3,1,0,0,0,0,0,<.\lib_if\user_interface.c><user_interface.c> 
+OPTFFF 3,4,3,0,0,0,0,0,<.\library\AU6210R1.OBJ><AU6210R1.OBJ> 
+OPTFFF 3,5,4,0,0,0,0,0,<..\MVs6210_R1_01_P5_rtc_TurnKey\library\MVs6210_R1_01_P5_rtc.LIB><MVs6210_R1_01_P5_rtc.LIB> 
+OPTFFF 4,6,1,0,0,0,0,0,<.\device\card_reader_ctrl.c><card_reader_ctrl.c> 
+OPTFFF 4,7,1,0,0,424,450,0,<.\device\devctrl.c><devctrl.c> { 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,252,255,255,255,226,255,255,255,29,0,0,0,29,0,0,0,72,3,0,0,186,1,0,0 }
+OPTFFF 4,8,1,0,0,0,0,0,<.\device\device.c><device.c> 
+OPTFFF 4,9,1,0,0,0,0,0,<.\device\usb_audio_ctrl.c><usb_audio_ctrl.c> 
+OPTFFF 4,10,1,0,0,0,0,0,<.\device\linein_ctrl.c><linein_ctrl.c> 
+OPTFFF 4,11,1,0,0,0,0,0,<.\device\rtc_ctrl.c><rtc_ctrl.c> 
+OPTFFF 5,12,1,0,0,0,0,0,<.\fs\presearch.c><presearch.c> 
+OPTFFF 5,13,1,0,0,0,0,0,<.\fs\otp_fs.c><otp_fs.c> 
+OPTFFF 6,14,1,0,0,0,0,0,<.\play\playctrl.c><playctrl.c> 
+OPTFFF 6,15,1,0,0,0,0,0,<.\play\otp_play.c><otp_play.c> 
+OPTFFF 7,16,1,0,0,0,0,0,<.\system\sysctrl.c><sysctrl.c> 
+OPTFFF 7,17,2,0,0,0,0,0,<.\system\STARTUP.a51><STARTUP.a51> 
+OPTFFF 7,18,1,0,0,0,0,0,<.\system\interrupt.c><interrupt.c> 
+OPTFFF 7,19,1,0,0,0,0,0,<.\system\message.c><message.c> 
+OPTFFF 7,20,1,0,0,0,0,0,<.\system\sys_on_off.c><sys_on_off.c> 
+OPTFFF 7,21,1,0,0,0,0,0,<.\system\debug.c><debug.c> 
+OPTFFF 7,22,1,0,0,0,0,0,<.\power\power_monitor.c><power_monitor.c> 
+OPTFFF 7,23,1,0,0,0,0,0,<.\system\breakpoint.c><breakpoint.c> 
+OPTFFF 8,24,1,0,0,0,0,0,<.\key\key.c><key.c> 
+OPTFFF 8,25,1,0,0,0,0,0,<.\key\ir_key.c><ir_key.c> 
+OPTFFF 8,26,1,0,0,0,0,0,<.\key\adc_key.c><adc_key.c> 
+OPTFFF 8,27,1,0,0,0,0,0,<.\key\power_key.c><power_key.c> 
+OPTFFF 8,28,1,0,0,0,0,0,<.\key\gpio_key.c><gpio_key.c> 
+OPTFFF 8,29,1,0,0,0,0,0,<.\key\coding_key.c><coding_key.c> 
+OPTFFF 9,30,1,0,0,0,0,0,<.\eeprom\24cxx.c><24cxx.c> 
+OPTFFF 9,31,1,0,0,0,0,0,<.\eeprom\i2c.c><i2c.c> 
+OPTFFF 10,32,1,0,0,0,0,0,<.\display\display.c><display.c> 
+OPTFFF 10,33,1,0,0,0,0,0,<.\display\seg_lcd_disp.c><seg_lcd_disp.c> 
+OPTFFF 10,34,1,0,0,0,0,0,<.\display\seg_led_disp.c><seg_led_disp.c> 
+OPTFFF 10,35,1,0,0,0,0,0,<.\display\seg_panel.c><seg_panel.c> 
+OPTFFF 10,36,1,0,0,0,0,0,<.\display\sled_disp.c><sled_disp.c> 
+OPTFFF 11,37,1,0,0,0,0,0,<.\radio\radio_app_interface.c><radio_app_interface.c> 
+OPTFFF 11,38,1,805306370,0,53,87,0,<.\radio\radio_ctrl.c><radio_ctrl.c> { 44,0,0,0,2,0,0,0,3,0,0,0,255,255,255,255,255,255,255,255,252,255,255,255,226,255,255,255,87,0,0,0,87,0,0,0,130,3,0,0,244,1,0,0 }
+OPTFFF 11,39,1,0,0,0,0,0,<.\radio\mv_fm.c><mv_fm.c> 
+OPTFFF 12,40,1,0,0,0,0,0,<.\spi_flash\spi_flash.c><spi_flash.c> 
+OPTFFF 12,41,1,0,0,0,0,0,<.\spi_flash\spi_fs.c><spi_fs.c> 
+OPTFFF 12,42,2,0,0,0,0,0,<.\spi_flash\spi_flash_asm.a51><spi_flash_asm.a51> 
+OPTFFF 12,43,1,0,0,0,0,0,<.\spi_flash\spi_play.c><spi_play.c> 
+OPTFFF 13,44,5,0,0,0,0,0,<.\release note.txt><release note.txt> 
+
+
+TARGOPT 1, (MVs6210_R1_src)
+ CLK51=24000000
+  OPTTT 0,1,1,0
+  OPTHX 0,65535,0,0,0
+  OPTLX 120,65,8,<.\output\lst\>
+  OPTOX 16
+  OPTLT 1,1,1,0,1,1,0,1,0,0,0,0
+  OPTXL 1,1,1,1,1,1,1,0,0
+  OPTFL 1,0,1
+  OPTAX 0
+  OPTDL (S8051.DLL)()(DP51.DLL)(-p52)(S8051.DLL)()(TP51.DLL)(-p52)
+  OPTDBG 48125,-1,()()()()()()()()()() ()()()()
+  OPTDF 0x0
+  OPTLE <>
+  OPTLC <>
+EndOpt
+

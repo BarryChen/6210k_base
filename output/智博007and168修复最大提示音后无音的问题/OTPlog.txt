@@ -1,0 +1,22 @@
+
+
+*--------------------------------------------*
+* 星期五 一月 30 2015 13:18:30
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-04-1c-09-34-0b
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v30_20150130.hex
+Download Size : 32704 bytes
+CheckSum      : 143
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期六 三月 7 2015 11:53:19
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-04-1c-09-34-0b
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/智博007and168修复最大提示音后无音的问题/MVs6210_AU6210K_ZB_BT007_CSR_20150130.hex
+Download Size : 32704 bytes
+CheckSum      : 248
+IsBitFlip     : 0
+

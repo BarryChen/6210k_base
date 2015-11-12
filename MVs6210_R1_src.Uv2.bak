@@ -1,0 +1,195 @@
+### uVision2 Project, (C) Keil Software
+### Do not modify !
+
+Target (MVs6210_R1_src), 0x0000 // Tools: 'MCS-51'
+
+Group (config)
+Group (lib_if)
+Group (library)
+Group (device)
+Group (fs)
+Group (play)
+Group (system)
+Group (key)
+Group (eeprom)
+Group (display)
+Group (radio)
+Group (spi_flash)
+Group (document)
+
+File 1,5,<.\config\syscfg.h><syscfg.h>
+File 2,1,<.\lib_if\clk_if.c><clk_if.c>
+File 2,1,<.\lib_if\user_interface.c><user_interface.c>
+File 3,3,<.\library\AU6210R1.OBJ><AU6210R1.OBJ>
+File 3,4,<.\library\ctslib_20130723.LIB><ctslib_20130723.LIB>
+File 3,4,<.\library\MVs6210_R1_01_0910.LIB><MVs6210_R1_01_0910.LIB>
+File 4,1,<.\device\card_reader_ctrl.c><card_reader_ctrl.c>
+File 4,1,<.\device\devctrl.c><devctrl.c>
+File 4,1,<.\device\device.c><device.c>
+File 4,1,<.\device\usb_audio_ctrl.c><usb_audio_ctrl.c>
+File 4,1,<.\device\linein_ctrl.c><linein_ctrl.c>
+File 4,1,<.\device\rtc_ctrl.c><rtc_ctrl.c>
+File 4,1,<.\device\touchkey_ctrl.c><touchkey_ctrl.c>
+File 5,1,<.\fs\presearch.c><presearch.c>
+File 5,1,<.\fs\otp_fs.c><otp_fs.c>
+File 6,1,<.\play\playctrl.c><playctrl.c>
+File 6,1,<.\play\otp_play.c><otp_play.c>
+File 7,1,<.\system\sysctrl.c><sysctrl.c>
+File 7,2,<.\system\STARTUP.a51><STARTUP.a51>
+File 7,1,<.\system\interrupt.c><interrupt.c>
+File 7,1,<.\system\message.c><message.c>
+File 7,1,<.\system\sys_on_off.c><sys_on_off.c>
+File 7,1,<.\system\debug.c><debug.c>
+File 7,1,<.\power\power_monitor.c><power_monitor.c>
+File 7,1,<.\system\breakpoint.c><breakpoint.c>
+File 8,1,<.\key\key.c><key.c>
+File 8,1,<.\key\ir_key.c><ir_key.c>
+File 8,1,<.\key\adc_key.c><adc_key.c>
+File 8,1,<.\key\power_key.c><power_key.c>
+File 8,1,<.\key\gpio_key.c><gpio_key.c>
+File 8,1,<.\key\coding_key.c><coding_key.c>
+File 8,1,<.\key\touch_key.c><touch_key.c>
+File 9,1,<.\eeprom\24cxx.c><24cxx.c>
+File 9,1,<.\eeprom\i2c.c><i2c.c>
+File 10,1,<.\display\display.c><display.c>
+File 10,1,<.\display\seg_lcd_disp.c><seg_lcd_disp.c>
+File 10,1,<.\display\seg_led_disp.c><seg_led_disp.c>
+File 10,1,<.\display\seg_panel.c><seg_panel.c>
+File 10,1,<.\display\sled_disp.c><sled_disp.c>
+File 11,1,<.\radio\radio_app_interface.c><radio_app_interface.c>
+File 11,1,<.\radio\radio_ctrl.c><radio_ctrl.c>
+File 11,1,<.\radio\mv_fm.c><mv_fm.c>
+File 12,1,<.\spi_flash\spi_flash.c><spi_flash.c>
+File 12,1,<.\spi_flash\spi_fs.c><spi_fs.c>
+File 12,2,<.\spi_flash\spi_flash_asm.a51><spi_flash_asm.a51>
+File 12,1,<.\spi_flash\spi_play.c><spi_play.c>
+File 13,5,<.\release note.txt><release note.txt>
+
+
+Options 1,0,0  // Target 'MVs6210_R1_src'
+ Device (AT89C52)
+ Vendor (Atmel)
+ Cpu (IRAM(0-0xFF) IROM(0-0x1FFF) CLOCK(24000000))
+ FlashUt ()
+ StupF ("LIB\STARTUP.A51" ("Standard 8051 Startup Code"))
+ FlashDR ()
+ DevID (2980)
+ Rgf (REGX52.H)
+ Mem ()
+ C ()
+ A ()
+ RL ()
+ OH ()
+ DBC_IFX ()
+ DBC_CMS ()
+ DBC_AMS ()
+ DBC_LMS ()
+ UseEnv=0
+ EnvBin ()
+ EnvInc ()
+ EnvLib ()
+ EnvReg (ÿAtmel\)
+ OrgReg (ÿAtmel\)
+ TgStat=16
+ OutDir (.\output\obj\)
+ OutName (..\MVs6210)
+ GenApp=1
+ GenLib=0
+ GenHex=1
+ Debug=1
+ Browse=1
+ LstDir (.\output\lst\)
+ HexSel=0
+ MG32K=0
+ TGMORE=0
+ RunUsr 0 0 <>
+ RunUsr 1 0 <>
+ BrunUsr 0 0 <>
+ BrunUsr 1 0 <>
+ CrunUsr 0 0 <>
+ CrunUsr 1 0 <>
+ SVCSID <>
+ MODEL5=2
+ RTOS5=0
+ ROMSZ5=2
+ DHOLD5=0
+ XHOLD5=0
+ T51FL=32848
+ XT51FL=0
+ CBANKS5=0
+ XBANKS5=0
+ RCB51 { 0,0,0,0,0,255,255,0,0 }
+ RXB51 { 0,0,0,0,0,0,0,0,0 }
+ OCM51 { 0,0,0,0,0,0,224,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ OCR51 { 0,0,0,0,0,0,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ IRO51 { 1,0,0,0,0,0,32,0,0 }
+ IRA51 { 0,0,0,0,0,0,1,0,0 }
+ XRA51 { 0,0,0,0,0,0,0,0,0 }
+ XRA512 { 0,0,0,0,0,0,0,0,0 }
+ IROM512 { 0,0,0,0,0,0,0,0,0 }
+ C51FL=84561168
+ C51VA=0
+ C51MSC ()
+ C51DEF ()
+ C51UDF ()
+ INCC5 (.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash)
+ AX51FL=4
+ AX51MSC ()
+ AX51SET ()
+ AX51RST ()
+ INCA5 ()
+ PropFld { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ IncBld=1
+ AlwaysBuild=0
+ GenAsm=0
+ AsmAsm=0
+ PublicsOnly=0
+ StopCode=3
+ CustArgs ()
+ LibMods ()
+ BankNo=65535
+ LX51FL=292
+ LX51OVL ()
+ LX51MSC (NOOVERLAY)
+ LX51DWN ()
+ LX51LFI ()
+ LX51ASN ()
+ LX51RES ()
+ LX51CCL ()
+ LX51UCL ()
+ LX51CSC ()
+ LX51UCS ()
+ LX51COB (0X0000-0XFFFF)
+ LX51XDB (0X0000-0X0CFF)
+ LX51PDB ()
+ LX51BIB ()
+ LX51DAB ()
+ LX51IDB ()
+ LX51PRC ()
+ LX51STK ()
+ LX51COS ()
+ LX51XDS ()
+ LX51BIS ()
+ LX51DAS ()
+ LX51IDS ()
+  OPTDL (S8051.DLL)()(DP51.DLL)(-p52)(S8051.DLL)()(TP51.DLL)(-p52)
+  OPTDBG 48125,-1,()()()()()()()()()() ()()()()
+ FLASH1 { 0,0,0,0,0,0,0,0,255,255,255,255,0,0,0,0,0,0,0,0 }
+ FLASH2 ()
+ FLASH3 ()
+ FLASH4 ()
+EndOpt
+
+Options 1,3,4  // File 'AU6210R1.OBJ'
+ PropFld { 2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
+ IncBld=2
+ AlwaysBuild=2
+ GenAsm=2
+ AsmAsm=2
+ PublicsOnly=1
+ StopCode=11
+ CustArgs ()
+ LibMods ()
+ BankNo=65535
+EndOpt
+

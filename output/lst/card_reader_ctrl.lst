@@ -1,0 +1,65 @@
+C51 COMPILER V9.00   CARD_READER_CTRL                                                      05/16/2015 15:55:47 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE CARD_READER_CTRL
+OBJECT MODULE PLACED IN .\output\obj\card_reader_ctrl.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE device\card_reader_ctrl.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE 
+                    -INCDIR(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\
+                    -slave;.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\card_reader_ctrl.lst) OBJECT(.\output\obj\card_reader_ctrl.obj)
+
+line level    source
+
+   1          #include "syscfg.h"
+   2          #include "device_hcd.h"
+   3          #include "device_stor.h"
+   4          
+   5          
+   6          #if (defined(FUNC_AUDIO_EN) || defined(FUNC_READER_EN) || defined(FUNC_AUDIO_READER_EN))
+   7          
+   8          //单独的读卡器模式，使用下面的VID、PID、STRING
+   9          WORD ReaderVID = 0x0000;
+  10          WORD ReaderPID = 0x0000;
+  11          BYTE* ReaderString_Manu = "MVSILICON.INC.";                     //max length: 32bytes
+  12          BYTE* ReaderString_Product = "MV CARD READER";          //max length: 32bytes
+  13          BYTE* ReaderString_SerialNumber = "2011090112345";      //max length: 32bytes
+  14          
+  15          
+  16          //mass-storage device initial
+  17          VOID DeviceStorCtrlInit(VOID)
+  18          {       
+  19   1              DeviceStorInit();
+  20   1      }
+  21          
+  22          
+  23          //mass-storage device initial
+  24          VOID DeviceStorCtrlEnd(VOID)
+  25          {       
+  26   1              UsbDeviceDisConnect();
+  27   1      }
+  28          
+  29          
+  30          //mass-storage device process
+  31          VOID DeviceStorStateCtrl(VOID)
+  32          {       
+  33   1              DeviceStorProcess();
+  34   1      }
+  35          
+  36          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =      9    ----
+   CONSTANT SIZE    =     44    ----
+   XDATA SIZE       =     13    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

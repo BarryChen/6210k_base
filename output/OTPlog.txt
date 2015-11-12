@@ -1,0 +1,442 @@
+*--------------------------------------------*
+* 星期一 九月 22 2014 20:37:32
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v22.hex
+Download Size : 32704 bytes
+CheckSum      : 115
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 22 2014 21:08:06
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v23.hex
+Download Size : 32704 bytes
+CheckSum      : 28
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 22 2014 21:23:49
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v9.hex
+Download Size : 32704 bytes
+CheckSum      : 28
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 22 2014 21:26:02
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v9.hex
+Download Size : 32704 bytes
+CheckSum      : 28
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 22 2014 21:27:28
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v9.hex
+Download Size : 32704 bytes
+CheckSum      : 191
+IsBitFlip     : 0
+
+
+
+*--------------------------------------------*
+* 星期二 九月 23 2014 11:19:49
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v7.hex
+Download Size : 32704 bytes
+CheckSum      : 54
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期三 九月 24 2014 14:25:00
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v8.hex
+Download Size : 32704 bytes
+CheckSum      : 82
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期三 九月 24 2014 17:11:24
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v10.hex
+Download Size : 32704 bytes
+CheckSum      : 18
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期三 九月 24 2014 20:31:05
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_NR_D_8_CSRBT_ver7.hex
+Download Size : 32704 bytes
+CheckSum      : 206
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 九月 26 2014 10:04:01
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_NR_D_8_CSRBT_ver8.hex
+Download Size : 32704 bytes
+CheckSum      : 208
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 九月 26 2014 14:24:08
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_NR_D_8_CSRBT_ver9.hex
+Download Size : 32704 bytes
+CheckSum      : 159
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 九月 26 2014 15:39:08
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_NR_D_8_CSRBT_ver10.hex
+Download Size : 32704 bytes
+CheckSum      : 160
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期六 九月 27 2014 18:11:46
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v23.hex
+Download Size : 32704 bytes
+CheckSum      : 28
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期六 九月 27 2014 18:13:15
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v10.hex
+Download Size : 32704 bytes
+CheckSum      : 18
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 29 2014 18:48:54
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v24.hex
+Download Size : 32704 bytes
+CheckSum      : 26
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 29 2014 20:44:49
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v25.hex
+Download Size : 32704 bytes
+CheckSum      : 79
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 29 2014 21:17:23
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v26.hex
+Download Size : 32704 bytes
+CheckSum      : 19
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 29 2014 21:33:53
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v27.hex
+Download Size : 32704 bytes
+CheckSum      : 25
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 九月 29 2014 21:48:39
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v11.hex
+Download Size : 32704 bytes
+CheckSum      : 221
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期二 九月 30 2014 14:43:10
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-04-1c-09-34-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v27.hex
+Download Size : 32704 bytes
+CheckSum      : 25
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期二 九月 30 2014 14:44:42
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v11.hex
+Download Size : 32704 bytes
+CheckSum      : 221
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期三 十月 8 2014 15:06:04
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v9.hex
+Download Size : 32704 bytes
+CheckSum      : 135
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期六 十月 11 2014 10:42:49
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210.hex
+Download Size : 32704 bytes
+CheckSum      : 118
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期二 十月 28 2014 14:56:11
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v28.hex
+Download Size : 32704 bytes
+CheckSum      : 211
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期二 十月 28 2014 18:42:55
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v29.hex
+Download Size : 32704 bytes
+CheckSum      : 192
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期二 十月 28 2014 18:46:01
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v12.hex
+Download Size : 32704 bytes
+CheckSum      : 156
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期二 十一月 4 2014 15:43:12
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v30.hex
+Download Size : 32704 bytes
+CheckSum      : 184
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期四 十一月 6 2014 11:50:34
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v31.hex
+Download Size : 32704 bytes
+CheckSum      : 65
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期四 十一月 6 2014 19:10:18
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v32.hex
+Download Size : 32704 bytes
+CheckSum      : 149
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 十一月 7 2014 00:07:49
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v33.hex
+Download Size : 32704 bytes
+CheckSum      : 26
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 十一月 7 2014 15:40:11
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v34.hex
+Download Size : 32704 bytes
+CheckSum      : 246
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 十一月 7 2014 15:59:10
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v35.hex
+Download Size : 32704 bytes
+CheckSum      : 61
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 十一月 7 2014 18:44:25
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v13.hex
+Download Size : 32704 bytes
+CheckSum      : 233
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 十一月 7 2014 20:25:44
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v13.hex
+Download Size : 32704 bytes
+CheckSum      : 233
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期一 十一月 10 2014 09:02:57
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_NR_D8_CSRBT_DSP_V10.hex
+Download Size : 32704 bytes
+CheckSum      : 139
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期三 十二月 3 2014 09:44:10
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_LK_SJ_CSRBT_v10.hex
+Download Size : 32704 bytes
+CheckSum      : 118
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 一月 30 2015 13:18:30
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-04-1c-09-34-0b
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v30_20150130.hex
+Download Size : 32704 bytes
+CheckSum      : 143
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 一月 30 2015 19:32:49
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-04-1c-09-34-0b
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_20150130.hex
+Download Size : 32704 bytes
+CheckSum      : 248
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期四 三月 12 2015 18:45:14
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : F:/MVsion/6210/Project/智博/168_7key/output/MVs6210_BT168_7KEY_IR_334_CSR_V1.hex
+Download Size : 32704 bytes
+CheckSum      : 243
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 三月 13 2015 09:40:01
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : F:/MVsion/6210/Project/智博/168_7key/output/MVs6210_BT168_7KEY_IR_334_CSR_V2.hex
+Download Size : 32704 bytes
+CheckSum      : 212
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 三月 13 2015 11:59:46
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : F:/MVsion/6210/Project/智博/168_7key/output/MVs6210_BT168_7KEY_IR_334_CSR_V3.hex
+Download Size : 32704 bytes
+CheckSum      : 34
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 三月 13 2015 12:11:39
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : F:/MVsion/6210/Project/智博/168_7key/output/MVs6210_BT168_7KEY_IR_334_CSR_V4.hex
+Download Size : 32704 bytes
+CheckSum      : 115
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 三月 13 2015 18:21:14
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : F:/MVsion/6210/Project/智博/168_7key/output/MVs6210_BT168_7KEY_IR_334_CSR_V5.hex
+Download Size : 32704 bytes
+CheckSum      : 92
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期五 三月 13 2015 18:48:34
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : F:/MVsion/6210/Project/智博/168_7key/output/MVs6210_BT168_7KEY_IR_334_CSR_V6.hex
+Download Size : 32704 bytes
+CheckSum      : 55
+IsBitFlip     : 0
+

@@ -1,0 +1,280 @@
+C51 COMPILER V9.00   LINEIN_CTRL                                                           05/16/2015 15:55:47 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE LINEIN_CTRL
+OBJECT MODULE PLACED IN .\output\obj\linein_ctrl.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE device\linein_ctrl.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDI
+                    -R(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave
+                    -;.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\linein_ctrl.lst) OBJECT(.\output\obj\linein_ctrl.obj)
+
+line level    source
+
+   1          #include "syscfg.h"
+   2          #include "sysctrl.h"
+   3          #include "device.h"
+   4          #include "user_interface.h"
+   5          #include "breakpoint.h"
+   6          #include "debug.h"
+   7          #include "sys_on_off.h"
+   8          #include "otp_play.h"
+   9          #include "pt231x.h"
+  10          #include "npca110x.h"
+  11          
+  12          #ifdef FUNC_LINEIN_EN
+  13          
+  14          #ifdef FUNC_NPCA110X_EN
+              extern BOOL isDefaultBass;
+              #endif
+  17          
+  18          //extern TIMER  VolumeUpTimer;
+  19          //extern BYTE   VolumeVal;
+  20          //extern BOOL   IsVolumeUpEnd;
+  21          
+  22          
+  23          //static BYTE LineInVolume = 4;
+  24          // Volume table in dB set.
+  25          BYTE CODE gLineInGain[VOLUME_MAX + 1] = 
+  26          {
+  27          //注:Line In音频从E0、E1口输入到芯片内部，请用gFmInGain[VOLUME_MAX + 1]表中参数值
+  28          //#if ((LINEIN_IO_TYPE == DAC_CH_E0_L) || (LINEIN_IO_TYPE == DAC_CH_E1_R) || (LINEIN_IO_TYPE == DAC_CH_E0E
+             -1))
+  29          //      63,             61,             59,             57,             55,             53,             51,             49,
+  30          //      47,             45,             43,             41,             39,             37,             35,             33,
+  31          //      31,             30,             29,             28,             27,             26,             25,             24,
+  32          //      23,             22,             21,             20,             19,             18,             17,             16,
+  33          //      15
+  34          #if (VOLUME_MAX == 16)
+                 #if defined(AU6210K_NR_D_9X)||defined(AU6210K_NR_D_9X_XJ_HTS)
+                      42,             35,             30,             25,             20,             18,             16,             15,
+                      14,             13,             12,             11,             10,             9,              8,              7,
+                      6
+                 #else
+                  63,         51,             39,             29,             20,             18,             16,             15,
+                      14,             13,             12,             11,             10,             9,              8,              7,
+                      6
+                 #endif       
+              #else
+  45                  #if defined(AU6210K_LK_SJ_CSRBT)
+                      63,
+                      62,             60,             57,             54,             52,             50,             48,             45,             
+                      42,             41,             39,             37,             36,             34,             33,             32,             
+                      30,             29,             28,             26,             25,             24,             23,             21,             
+                      19,             17,             15,             13,             11,             9,              8,              7,      
+                      #else
+  52                  63,
+C51 COMPILER V9.00   LINEIN_CTRL                                                           05/16/2015 15:55:47 PAGE 2   
+
+  53                  62,             58,             54,             51,             48,             45,             42,             39,
+  54                  37,             35,             33,             31,             29,             27,             25,             23,
+  55                  21,             19,             17,             16,             15,             14,             13,             12,
+  56                  11,             10,             9,              7,              6,              4,              2,              1
+  57                  #endif
+  58          #endif
+  59          };
+  60          
+  61          
+  62          //set line-in volume.
+  63          VOID SetLineInVolume(BYTE Vol)
+  64          {
+  65   1              InDacLineInGain(gLineInGain[Vol], gLineInGain[Vol]);
+  66   1      }
+  67          
+  68          
+  69          VOID LineInCtrlInit(VOID)
+  70          {
+  71   1      //      VolumeVal = 0;
+  72   1      //      IsVolumeUpEnd = FALSE;
+  73   1      //      SetLineInVolume(VolumeVal);
+  74   1      //      TimeOutSet(&VolumeUpTimer, 10);
+  75   1      #ifdef AU6210K_NR_D_8_CSRBT
+                      NPCA110X_DAC1_Set_Volume_and_Mute(gSys.Volume);
+              #else
+  78   1              SetLineInVolume(gSys.Volume);
+  79   1      #endif
+  80   1              UnMute();
+  81   1              gSys.MuteFg = FALSE;
+  82   1              DBG(("<<LineInCtrlInit()\n"));
+  83   1      #ifdef FUNC_BREAK_POINT_EN
+  84   1              BP_SaveInfo(&gBreakPointInfo.PowerMemory.SystemMode, sizeof(gBreakPointInfo.PowerMemory.SystemMode));
+  85   1      #endif
+  86   1      }
+  87          
+  88          
+  89          // LineIn IO DeInitialization.
+  90          VOID LineinIODeinit(VOID)
+  91          {
+  92   1      #if (LINEIN_IO_TYPE == DAC_CH_E0_L)
+                      ClrGpioRegBit(GPIO_E_OE, 0x01);
+                      SetGpioRegBit(GPIO_E_IE, 0x01);
+                      ClrGpioRegBit(GPIO_E_PU, 0x01);
+                      ClrGpioRegBit(GPIO_E_PD, 0x01);
+              #elif (LINEIN_IO_TYPE == DAC_CH_E1_R)
+                      ClrGpioRegBit(GPIO_E_OE, 0x02);
+                      SetGpioRegBit(GPIO_E_IE, 0x02);
+                      ClrGpioRegBit(GPIO_E_PU, 0x02);
+                      ClrGpioRegBit(GPIO_E_PD, 0x02);
+              #elif (LINEIN_IO_TYPE == DAC_CH_E0E1)
+ 103   1              ClrGpioRegBit(GPIO_E_OE, 0x03);
+ 104   1              SetGpioRegBit(GPIO_E_IE, 0x03);
+ 105   1              ClrGpioRegBit(GPIO_E_PU, 0x03);
+ 106   1              ClrGpioRegBit(GPIO_E_PD, 0x03);
+ 107   1      #endif  
+ 108   1      }
+ 109          
+ 110          
+ 111          VOID LineInStateCtrl(VOID)
+ 112          {
+ 113   1              MESSAGE Event = MessageGet(MSG_FIFO_KEY);
+ 114   1              BYTE minvolflag = 0;
+C51 COMPILER V9.00   LINEIN_CTRL                                                           05/16/2015 15:55:47 PAGE 3   
+
+ 115   1              BYTE maxvolflag = 0;
+ 116   1      
+ 117   1      //      if((!IsVolumeUpEnd) && (VolumeVal < gSys.Volume) && (IsTimeOut(&VolumeUpTimer)))
+ 118   1      //      {
+ 119   1      //              VolumeVal++;
+ 120   1      //              SetLineInVolume(VolumeVal);
+ 121   1      //              if(VolumeVal == gSys.Volume)
+ 122   1      //              {
+ 123   1      //                      IsVolumeUpEnd = TRUE;
+ 124   1      //              }
+ 125   1      //              else
+ 126   1      //              {
+ 127   1      //                      TimeOutSet(&VolumeUpTimer, 10);
+ 128   1      //              }       
+ 129   1      //      }
+ 130   1       //   DBG(("LineinON\n"));
+ 131   1              switch(Event)
+ 132   1              {
+ 133   2              case MSG_V_ADD:
+ 134   2              case MSG_VOL_ADD:                       
+ 135   2      #if defined(FUNC_PT231X_EN) && !defined(AU6210K_NR_D_8_CSRBT)
+                              VolType = VOL_MAIN;
+                              PT2313VolAdd();         
+              #else
+ 139   2                      if(gSys.Volume < VOLUME_MAX)
+ 140   2                      {
+ 141   3                              maxvolflag = 1;
+ 142   3                              VolumeAdjust(UP);
+ 143   3                      }
+ 144   2      #endif    
+ 145   2      #if defined(AU6210K_NR_D_9X_XJ_HTS)|| defined(AU6210K_NR_D_8_CSRBT)||defined(AU6210K_LK_SJ_CSRBT)|| define
+             -d(AU6210K_ZB_BT007_CSR)
+ 146   2                      if (Event == MSG_V_ADD && gSys.Volume == VOLUME_MAX && !maxvolflag)
+ 147   2                      {
+ 148   3                              SPI_PlaySelectNum(SPIPLAY_SONG_MAX_VOLUME, 1);                  
+ 149   3                              
+ 150   3                      }
+ 151   2                      
+ 152   2      #endif
+ 153   2                      break;
+ 154   2              case MSG_V_SUB:         
+ 155   2              case MSG_VOL_SUB:                       
+ 156   2      #if defined(FUNC_PT231X_EN) && !defined(AU6210K_NR_D_8_CSRBT)
+                              VolType = VOL_MAIN;
+                              PT2313VolSub();         
+              #else
+ 160   2                      if(gSys.Volume > VOLUME_MIN)
+ 161   2                      {
+ 162   3                              minvolflag = 1;
+ 163   3                              VolumeAdjust(DOWN);
+ 164   3                      }
+ 165   2      #endif
+ 166   2      #if defined(AU6210K_NR_D_9X_XJ_HTS) || defined(AU6210K_NR_D_8_CSRBT)||defined(AU6210K_LK_SJ_CSRBT)|| defin
+             -ed(AU6210K_ZB_BT007_CSR)
+ 167   2                      if (Event == MSG_V_SUB && gSys.Volume == VOLUME_MIN && !minvolflag)
+ 168   2                      {
+ 169   3                              SPI_PlaySelectNum(SPIPLAY_SONG_MIN_VOLUME, 1);
+ 170   3                              //UnMute();
+ 171   3                      }
+ 172   2      #endif
+ 173   2                      break;  
+ 174   2      #ifdef FUNC_PT231X_EN
+C51 COMPILER V9.00   LINEIN_CTRL                                                           05/16/2015 15:55:47 PAGE 4   
+
+                      case MSG_TREBUP:
+                                      VolType = VOL_TREB;
+                              PT2313VolAdd();         
+                                      break;          
+                              case MSG_TREBDN:
+                                      VolType = VOL_TREB;
+                          PT2313VolSub();     
+                                      break;          
+                              case MSG_BASSUP:
+                                      VolType = VOL_BASS;
+                          PT2313VolAdd();     
+                                      break;          
+                              case MSG_BASSDN:
+                                      VolType = VOL_BASS;
+                          PT2313VolSub();     
+                                      break;          
+                              case MSG_DEFAULT:
+                                      PT2313TrebBassSetDefault();
+                                      break;          
+              #elif 0//defined(FUNC_NPCA110X_EN)
+                              case MSG_DEFAULT:
+                                      if(isDefaultBass)
+                                      {
+                                              NPCA110X_SetBass();
+                                              isDefaultBass = FALSE;
+                                      }
+                                      else
+                                      {
+                                              NPCA110X_NormalBass();
+                                              isDefaultBass = TRUE;
+                                      }
+                                      break;
+              #endif
+ 208   2      
+ 209   2                      case MSG_MUTE:          //mute enable
+ 210   2                      case MSG_PLAY_PAUSE:
+ 211   2      #ifdef FUNC_BEEP_SOUND_EN       
+                                      if(gSys.MuteFg == FALSE)
+                                      {
+                                              PushKeyBeep(1);
+                                      }
+              #endif
+ 217   2      
+ 218   2      #if 0//def FUNC_SPI_KEY_SOUND_EN
+                                      if(gSys.MuteFg)
+                                      {
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_UNMUTE, 0);
+                                      }
+                                      else
+                                      {       
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_MUTE, 0);                                
+                                      }
+              #endif          
+ 228   2                              MuteStatusChange();
+ 229   2                              break;
+ 230   2      
+ 231   2                      default:
+ 232   2                              break;
+ 233   2              }
+ 234   1      
+ 235   1      #ifdef FUN_SYSTEM_POWEROFF_WAIT_TIME
+                      SystemOffTimeMsgPro(Event);
+C51 COMPILER V9.00   LINEIN_CTRL                                                           05/16/2015 15:55:47 PAGE 5   
+
+              #endif
+ 238   1      }
+ 239          
+ 240          #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    247    ----
+   CONSTANT SIZE    =     33    ----
+   XDATA SIZE       =   ----       3
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

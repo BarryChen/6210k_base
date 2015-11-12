@@ -1,0 +1,23 @@
+---- AU6210K_ZB_BT007_IR_IC_IS_334M_CSR Matches (18 in 5 files) ----
+Bt.c (bluetooth):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR		
+Bt.c (bluetooth):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Bt.c (bluetooth):#if 0//def AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Bt.c (bluetooth):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Bt.c (bluetooth):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Bt.c (bluetooth):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Bt.c (bluetooth):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Bt.c (bluetooth):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Ir_key.c (key):#elif defined(AU6210K_ZB_BT007_CSR) && !defined(AU6210K_ZB_BT007_IR_IC_IS_334M_CSR)
+Ir_key.c (key):#elif defined(AU6210K_ZB_BT007_CSR) && defined(AU6210K_ZB_BT007_IR_IC_IS_334M_CSR)
+Ir_key.c (key):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Key.c (key):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Key.c (key):#if defined(AU6210K_ZB_BT007_CSR) && defined(AU6210K_ZB_BT007_IR_IC_IS_334M_CSR)//juest using 168
+Key.c (key):#ifdef AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Spi_play.c (spi_flash):#if 0//def AU6210K_ZB_BT007_IR_IC_IS_334M_CSR
+Syscfg.h (config)://#define AU6210K_ZB_BT007_IR_IC_IS_334M_CSR  //移动电源的案子    //与智博bt007 仅有部分功能不同: ir ic  //168
+Syscfg.h (config):#if defined(AU6210K_ZB_BT007_CSR) && !defined(AU6210K_ZB_BT007_IR_IC_IS_334M_CSR)//007
+Syscfg.h (config):#if defined(AU6210K_HXX_B002) || defined(AU6210K_ZB_BT007_IR_IC_IS_334M_CSR)
+---- AU6210K_ZB_BT007_IR_IC_IS_334M_CSR Search Errors Encountered (2) ----
+The following 2 files could not be processed:
+F:\MVsion\6210\Project\MVs6210K_CSR_BT\MVs6210K_CSR_BT.IAB : File could not be opened.
+F:\MVsion\6210\Project\MVs6210K_CSR_BT\MVs6210K_CSR_BT.IMB : File could not be opened.

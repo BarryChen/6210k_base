@@ -1,0 +1,113 @@
+
+
+*--------------------------------------------*
+* 星期一 九月 22 2014 20:05:41
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v21.hex
+Download Size : 32704 bytes
+CheckSum      : 219
+IsBitFlip     : 0
+
+修改蓝牙灯的输入与输出：
+#define BTIO_PORT_BLUE_LED_INIT()/*D0*/	do{ \	
+	SetGpioRegBit(GPIO_D_PU, (1 << 0));\
+	ClrGpioRegBit(GPIO_D_PD, (1 << 0));	\
+	ClrGpioRegBit(GPIO_D_OE, (1 << 0));\
+	SetGpioRegBit(GPIO_D_IE, (1 << 0));\
+	}while(0)
+#define GET_BLUE_LED_STATUS()/*D0*/	 \	
+	GetGpioReg(GPIO_D_IN) & (1 << 0)
+
+
+#define BTIO_PORT_RED_LED_INIT()/*D1*/	do{ \	
+	SetGpioRegBit(GPIO_D_PU, (1 << 1));\
+	ClrGpioRegBit(GPIO_D_PD, (1 << 1));	\
+	ClrGpioRegBit(GPIO_D_OE, (1 << 1));\
+	SetGpioRegBit(GPIO_D_IE, (1 << 1));\
+	}while(0)
+#define GET_RED_LED_STATUS()/*D1*/	\	
+	GetGpioReg(GPIO_D_IN) & (1 << 1)
+
+
+#define BTIO_PORT4_INIT()/*b5 灯*/	do{ \
+    ClrGpioRegBit(GPIO_B_PU, (1<<5));	\	
+	ClrGpioRegBit(GPIO_B_PD, (1<<5));	\	
+	ClrGpioRegBit(GPIO_B_IE, (1<<5));	\	
+	SetGpioRegBit(GPIO_B_OE, (1<<5));	\
+	}while(0)
+
+#define BTIO_PORT1_INIT()/*A0 灯*/	do{ \
+    SetGpioRegBit(GPIO_A_PU, (1<<0));	\	
+	ClrGpioRegBit(GPIO_A_PD, (1<<0));	\	
+	ClrGpioRegBit(GPIO_A_IE, (1<<0));	\	
+	SetGpioRegBit(GPIO_A_OE, (1<<0));	\
+	}while(0)
+
+
+*--------------------------------------------*
+* 星期一 九月 22 2014 20:37:32
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v22.hex
+Download Size : 32704 bytes
+CheckSum      : 115
+IsBitFlip     : 0
+蓝牙模式输出红灯为高，要求客户改板
+
+*--------------------------------------------*
+* 星期一 九月 22 2014 21:08:06
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v23.hex
+Download Size : 32704 bytes
+CheckSum      : 28
+IsBitFlip     : 0
+去掉蓝牙模式下灯口的检测
+
+*--------------------------------------------*
+* 星期一 九月 29 2014 18:48:54
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v24.hex
+Download Size : 32704 bytes
+CheckSum      : 26
+IsBitFlip     : 0
+
+
+*--------------------------------------------*
+* 星期一 九月 29 2014 21:33:53
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-08-07-0f-0e-0b
+Download File : M:/work/xinju-software/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v27.hex
+Download Size : 32704 bytes
+CheckSum      : 25
+IsBitFlip     : 0
+
+
+*--------------------------------------------*
+* 星期二 十月 28 2014 18:42:55
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_IR_IC_IS_334M_CSR_v29.hex
+Download Size : 32704 bytes
+CheckSum      : 192
+IsBitFlip     : 0
+
+*--------------------------------------------*
+* 星期二 十月 28 2014 18:46:01
+*--------------------------------------------*
+MCU           : AU6210
+Programer ID  : dd-05-1b-0e-3b-17
+Download File : F:/MVsion/6210/Project/MVs6210K_CSR_BT/output/MVs6210_AU6210K_ZB_BT007_CSR_v12.hex
+Download Size : 32704 bytes
+CheckSum      : 156
+IsBitFlip     : 0
+修复了触摸的提示音暂停键后还会播放一会的问题
+

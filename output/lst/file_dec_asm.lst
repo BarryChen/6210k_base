@@ -1,0 +1,79 @@
+A51 MACRO ASSEMBLER  FILE_DEC_ASM                                                         03/13/2015 11:27:25 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.01
+OBJECT MODULE PLACED IN .\output\obj\file_dec_asm.obj
+ASSEMBLER INVOKED BY: d:\Keil C51\C51\BIN\A51.EXE play\file_dec_asm.A51 SET(LARGE) DEBUG PRINT(.\output\lst\file_dec_asm
+                      .lst) OBJECT(.\output\obj\file_dec_asm.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     
+                       2     NAME    FILE_DEC_ASM
+                       3     
+                       4     ?PR?_BufferConvert?FILE_DEC_ASM                  SEGMENT CODE 
+                       5     
+                       6             PUBLIC  _BufferConvert
+                       7     
+                       8     
+                       9     
+                      10     
+                      11     
+                      12     
+                      13     
+                      14     
+                      15     
+                      16     
+                      17     
+----                  18             RSEG  ?PR?_BufferConvert?FILE_DEC_ASM
+0000                  19     _BufferConvert:
+                      20             USING   0
+                      21     
+0000 8F82             22             MOV     DPL,    R7
+0002 8E83             23             MOV     DPH,    R6
+                      24     
+0004 ED               25             MOV             A,              R5
+0005 7004             26             JNZ             BUFFER_CONVERT_LOOP2
+                      27     
+0007                  28     BUFFER_CONVERT_LOOP1:
+0007 EC               29             MOV             A,              R4
+0008 600B             30             JZ              BUFFER_CONVERT_EXIT
+000A 1C               31             DEC             R4
+                      32     
+000B                  33     BUFFER_CONVERT_LOOP2: 
+000B E0               34             MOVX    A,              @DPTR
+000C 6455             35             XRL     A,              #055H
+000E F0               36             MOVX    @DPTR,  A
+000F A3               37             INC             DPTR
+                      38     
+0010 DDF9             39             DJNZ    R5,     BUFFER_CONVERT_LOOP2 
+0012 020000   F       40             LJMP    BUFFER_CONVERT_LOOP1
+                      41     
+                      42     
+0015                  43     BUFFER_CONVERT_EXIT:
+0015 22               44             RET
+                      45     
+                      46     
+                      47             END
+A51 MACRO ASSEMBLER  FILE_DEC_ASM                                                         03/13/2015 11:27:25 PAGE     2
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E                          T Y P E  V A L U E   ATTRIBUTES
+
+?PR?_BUFFERCONVERT?FILE_DEC_ASM  C SEG    0016H       REL=UNIT
+BUFFER_CONVERT_EXIT . . . . . .  C ADDR   0015H   R   SEG=?PR?_BUFFERCONVERT?FILE_DEC_ASM
+BUFFER_CONVERT_LOOP1. . . . . .  C ADDR   0007H   R   SEG=?PR?_BUFFERCONVERT?FILE_DEC_ASM
+BUFFER_CONVERT_LOOP2. . . . . .  C ADDR   000BH   R   SEG=?PR?_BUFFERCONVERT?FILE_DEC_ASM
+DPH . . . . . . . . . . . . . .  D ADDR   0083H   A   
+DPL . . . . . . . . . . . . . .  D ADDR   0082H   A   
+FILE_DEC_ASM. . . . . . . . . .  N NUMB   -----       
+_BUFFERCONVERT. . . . . . . . .  C ADDR   0000H   R   SEG=?PR?_BUFFERCONVERT?FILE_DEC_ASM
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

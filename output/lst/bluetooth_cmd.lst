@@ -1,0 +1,419 @@
+C51 COMPILER V9.00   BLUETOOTH_CMD                                                         05/16/2015 15:55:50 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE BLUETOOTH_CMD
+OBJECT MODULE PLACED IN .\output\obj\bluetooth_cmd.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE bluetooth\bluetooth_cmd.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE 
+                    -INCDIR(.\config;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\
+                    -slave;.\bluetooth;.\i2c) DEBUG PRINT(.\output\lst\bluetooth_cmd.lst) OBJECT(.\output\obj\bluetooth_cmd.obj)
+
+line level    source
+
+   1          #include <reg51.h>                                                                              //include public header files
+   2          #include <string.h>
+   3          #include "type.h"
+   4          #include "utility.h"
+   5          #include "timer.h"
+   6          #include "syscfg.h"
+   7          #include "sysctrl.h"
+   8          #include "key.h"
+   9          #include "debug.h"
+  10          #include "message.h"
+  11          #include "Uart.h"
+  12          #include "slave_cmd.h"
+  13          #include "slave_ctrl.h"
+  14          #include "Bluetooth_ctrl.h"
+  15          #include "bt.h"
+  16          //#if (defined(FUNC_BLUETOOTH_CJ_EN) && (!defined(AU6210K_NR_D_8_CSRBT)))   //csr¿∂—¿≤ª”√∑¢√¸¡Ó
+  17          #if 0//(defined(FUNC_BLUETOOTH_CJ_EN) && (!defined(AU6210K_NR_D_8_CSRBT))) //¥ÀŒƒº˛ «”√¿¥◊ˆ¥Æø⁄∑¢√¸¡Óøÿ÷∆¿
+             -∂—¿µƒ∞∏◊” ±»»Á¥¥Ω›
+              
+              //¿∂—¿¥Æø⁄Õ®—∂÷∏¡Ó
+              static BYTE CMD_RECONNECT[7] = {0XAA, 0X00, 0X03, 0X02, 0X00, 0X16, 0XE5};
+              static BYTE CMD_PLAY_PAUSE[7] = {0XAA, 0X00, 0X03, 0X02, 0X00, 0X32, 0XC9};
+              static BYTE CMD_NEXT[7] = {0XAA, 0X00, 0X03, 0X02, 0X00, 0X34, 0XC7};
+              static BYTE CMD_PRE[7] = {0XAA, 0X00, 0X03, 0X02, 0X00, 0X35, 0XC6};
+              static BYTE CMD_VOLUP[7] = {0XAA, 0X00, 0X03, 0X02, 0X00, 0X30, 0XCB};
+              static BYTE CMD_VOLDOWN[7] = {0XAA, 0X00, 0X03, 0X02, 0X00, 0X31, 0XCA};
+              static BYTE CMD_ANSWERCALL[7] = {0XAA, 0X00, 0X03, 0X02, 0X00, 0X04, 0XF7};
+              static BYTE CMD_REJECTCALL[7] = {0XAA, 0X00, 0X03, 0X02, 0X00, 0X05, 0XF6};
+              static BYTE CMD_HUNGUPCALL[7] = {0xAA, 0x00, 0x03, 0x02, 0x00, 0x06, 0xF5};
+              static BYTE CMD_REDIAL[7] = {0xAA, 0x00, 0x03, 0x02, 0x00, 0x0C, 0xEF};
+              static BYTE CMD_DISCONNECT[7] = {0xAA, 0x00, 0x03, 0x02, 0x00, 0x3B, 0xC0};
+              
+              //¿∂—¿”¶¥
+              static BYTE RESP_BT_CONNECTED[] = {0xAA, 0x00, 0x03, 0x01, 0x05};//, link_info:0x00 ,–£—È0xF7
+              static BYTE RESP_test_RESP[] = {0xAA, 0x00, 0x02, 0x00, 0x02};//
+              
+              //#define MAX_CMD_DATA_LEN      16                                              //√¸¡Ó ˝æ›”Ú◊Ó¥Û≥§∂»
+              //#define RX_QUEUE_LENGTH       (MAX_CMD_DATA_LEN + 10)         //¥Æø⁄÷–∂œΩ” ’ª∫≥Â«¯≥§∂»
+              
+              //static BYTE RxQueue[RX_QUEUE_LENGTH];
+              //static BYTE RxQueueHead;
+              //static BYTE RxQueueTail;
+              
+              //BYTE gBluetoothCmd[MAX_CMD_DATA_LEN + 1];                                     //[√¸¡Ó≥§∂»”Ú°¢√¸¡Ó¬Î”Ú] + 1Byte–£—È¬Î”Ú
+              static BYTE BluetoothRxIndex = -2;
+              static BYTE BluetoothHead = 0;
+              
+              //static BYTE BluetoothConnectedCount = 0;
+              
+              //extern BOOL PlayPhoneNumBreakoff;
+              //extern BYTE PlayPairFlag;
+              extern BYTE USEGetRxQueueLen();
+              extern BYTE GetRxQueueData();
+C51 COMPILER V9.00   BLUETOOTH_CMD                                                         05/16/2015 15:55:50 PAGE 2   
+
+              BOOL BluetoothRcvCmd();
+              VOID BluetoothSendCmd(BYTE* cmd, BYTE cmdLength);
+              
+              /*VOID BluetoothCmdInit()
+              {
+                      RxQueueHead = 0;
+                      RxQueueTail = 0;
+                      BluetoothRxIndex = -2;
+                      BluetoothHead = 0;
+                      gBlutoothStatus = BT_IDLE;
+                      BluetoothConnectedCount = 0;
+                      //RstFastUart();
+                      //FastUartOpen(FAST_UART_USE_A0E2, 19200, 8);
+                      I51UartOpen(BAUDRATE_4800, UART_USE_A1A2);
+                      //Test
+                      //BluetoothSendCmd(CMD_PLAY_PAUSE, sizeof(CMD_PLAY_PAUSE));
+              }*/
+              
+              VOID BluetoothCmdPlay()
+              {
+                      BluetoothSendCmd(CMD_PLAY_PAUSE, sizeof(CMD_PLAY_PAUSE));
+              }
+              
+              VOID BluetoothCmdNext()
+              {
+                      BluetoothSendCmd(CMD_NEXT, sizeof(CMD_NEXT));
+              }
+              
+              VOID BluetoothCmdPrev()
+              {
+                      BluetoothSendCmd(CMD_PRE, sizeof(CMD_PRE));
+              }
+              
+              VOID BluetoothCmdVolUp()
+              {
+                      BluetoothSendCmd(CMD_VOLUP, sizeof(CMD_VOLUP));
+              }
+              
+              VOID BluetoothCmdVowDown()
+              {
+                      BluetoothSendCmd(CMD_VOLDOWN, sizeof(CMD_VOLDOWN));
+              }
+              
+              VOID BluetoothCmdReconnect()
+              {
+                      BluetoothSendCmd(CMD_RECONNECT, sizeof(CMD_RECONNECT));
+              }
+              
+              VOID BluetoothCmdAnswerCall()
+              {
+                      BluetoothSendCmd(CMD_ANSWERCALL, sizeof(CMD_ANSWERCALL));
+              }
+              
+              VOID BluetoothCmdRejectCall()
+              {
+                      BluetoothSendCmd(CMD_REJECTCALL, sizeof(CMD_REJECTCALL));
+              }
+              
+              VOID BluetoothCmdHungUpCall()
+              {
+                      BluetoothSendCmd(CMD_HUNGUPCALL, sizeof(CMD_HUNGUPCALL));
+              }
+C51 COMPILER V9.00   BLUETOOTH_CMD                                                         05/16/2015 15:55:50 PAGE 3   
+
+              
+              VOID BluetoothCmdRedial()
+              {
+                      BluetoothSendCmd(CMD_REDIAL, sizeof(CMD_REDIAL));
+              }
+              VOID BluetoothCmdDisconnect()
+              {
+                      BluetoothSendCmd(CMD_DISCONNECT, sizeof(CMD_DISCONNECT));
+              }
+              /*VOID BluetoothPlayPhoneNum()
+              {s
+                      BYTE Cmdbuf;
+                      BYTE PhoneNumSum;
+                      BYTE BluetoothPhoneNum[MAX_CMD_DATA_LEN + 1];
+                      if (gBluetoothCmd[3] == 0x30)
+                              PhoneNumSum = 15;
+                      else
+                              PhoneNumSum = 14;
+                      for (Cmdbuf=0;Cmdbuf<=PhoneNumSum;Cmdbuf++)             //∑¿÷π‘Ÿ¥ŒΩ” ’√¸¡Ó ±gBluetoothCmd[Cmdbuf]±ª∏ƒ±‰µº÷¬∫≈¬Î¥ÌŒÛ
+                      {
+                              BluetoothPhoneNum[Cmdbuf] = gBluetoothCmd[Cmdbuf];
+                      }
+                      for(Cmdbuf=3;Cmdbuf<=PhoneNumSum ;&& PlayPhoneNumBreakoff == FALSE;Cmdbuf++)
+                      {
+              #if defined(AU6210K_NR_D_9X_XJ_HTS)
+                              if (Cmdbuf == 3)
+                              {
+                                      SPI_PlaySelectNum(SPIPLAY_SONG_HAVE_CALL,0);
+                              }
+              #endif
+                              switch(BluetoothPhoneNum[Cmdbuf])
+                              {
+                                      case 0x30:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_0,0);
+                                              break;
+                                      case 0x31:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_1,0);
+                                              break;
+                                      case 0x32:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_2,0);
+                                              break;
+                                      case 0x33:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_3,0);
+                                              break;
+                                      case 0x34:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_4,0);
+                                              break;
+                                      case 0x35:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_5,0);
+                                              break;
+                                      case 0x36:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_6,0);
+                                              break;
+                                      case 0x37:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_7,0);
+                                              break;
+                                      case 0x38:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_8,0);
+                                              break;
+                                      case 0x39:
+                                              SPI_PlaySelectNum(SPIPLAY_SONG_NUM_9,0);
+                                              break;
+C51 COMPILER V9.00   BLUETOOTH_CMD                                                         05/16/2015 15:55:50 PAGE 4   
+
+                                      default:
+                                              break;
+                              }
+                      }
+                      InDacChannelSel(LINEIN_IO_TYPE); 
+                      SetBluetoothVolume();
+                      //PlayPhoneNumBreakoff = FALSE;
+              }*/
+              /*
+              VOID BluetoothRefreshStatus()
+              {
+                      //PlayPhoneNumBreakoff = FALSE;
+                      if (BluetoothRcvCmd())
+                      {
+                              switch (gBluetoothCmd[1])
+                              {
+                                      case 0x01: //Connecting status
+                                              {
+                                                      if (gBluetoothCmd[2] == 0x05)
+                                                      {
+                                                              PlayPairFlag = 0;
+                                                              gBlutoothStatus = BT_CONNECTED;
+                                                              BluetoothConnectedCount++;
+                                                              if (BluetoothConnectedCount > 2)
+                                                                      BluetoothConnectedCount = 2;
+                                                              #ifdef FUNC_SPI_KEY_SOUND_EN
+                                                              if (BluetoothConnectedCount == 1)
+                                                              {
+                                                                      SPI_PlaySelectNum(SPIPLAY_SONG_PHONE_ONE_CONNECTED,0);
+                                                                      InDacChannelSel(LINEIN_IO_TYPE); 
+                                                                      SetBluetoothVolume();
+                                                              }
+                                                              else if (BluetoothConnectedCount == 2)
+                                                              {
+                                                                      SPI_PlaySelectNum(SPIPLAY_SONG_PHONE_TWO_CONNECTED,0);
+                                                                      InDacChannelSel(LINEIN_IO_TYPE);         
+                                                                      SetBluetoothVolume();
+                                                              }
+                                                              #endif  
+                                                      } 
+                                                      else if (gBluetoothCmd[2] == 0x07)
+                                                      {
+                                                              #ifdef FUNC_SPI_KEY_SOUND_EN
+                                                              if (BluetoothConnectedCount == 2)
+                                                              {
+                                                                      SPI_PlaySelectNum(SPIPLAY_SONG_PHONE_ONE_DISCONNECTED,0);
+                                                                      InDacChannelSel(LINEIN_IO_TYPE); 
+                                                                      SetBluetoothVolume();
+                                                              }
+                                                              else if (BluetoothConnectedCount == 1)
+                                                              {
+                                                                      SPI_PlaySelectNum(SPIPLAY_SONG_PHONE_TWO_DISCONNECTED,0);
+                                                                      InDacChannelSel(LINEIN_IO_TYPE);
+                                                                      SetBluetoothVolume();
+                                                              }
+                                                              #endif  
+                                                              if (BluetoothConnectedCount > 0)
+                                                                      BluetoothConnectedCount--;
+                                                              if (BluetoothConnectedCount == 0)
+                                                              {
+                                                                      gBlutoothStatus = BT_IDLE;
+                                                              }
+C51 COMPILER V9.00   BLUETOOTH_CMD                                                         05/16/2015 15:55:50 PAGE 5   
+
+                                                      }
+                                              }
+                                              break;
+                                      case 0x02:      //Call status
+                                              {
+                                                      if (gBluetoothCmd[2] == 0x00 || gBluetoothCmd[2] == 0x01) //Call 
+                                                      {
+                                                              if (gBluetoothCmd[3] == 0x02) //Incoming call
+                                                              {
+                                                                      gBlutoothStatus = BT_INCOMING_CALL;
+                                                              }
+                                                              else if (gBluetoothCmd[3] == 0x03)
+                                                              {
+                                                                      gBlutoothStatus = BT_MAKE_CALL;
+                                                              }
+                                                              else if (gBluetoothCmd[3] == 0x04) //Answer call
+                                                              {
+                                                                      gBlutoothStatus = BT_IN_THE_CALL;
+                                                                      //PlayPhoneNumBreakoff = TRUE;
+                                                              }       
+                                                              else if (gBluetoothCmd[3] == 0x00) //End call
+                                                              {
+                                                                      gBlutoothStatus = BT_CONNECTED;
+                                                                      //PlayPhoneNumBreakoff = TRUE;
+                                                              }
+                                                      } 
+                                              }
+                                              break;
+                                      case 0x03:      //phone num
+                                              {
+                                                      if (gBluetoothCmd[2] == 0x00)
+                                                      {
+                                                              gBlutoothStatus = BT_INCOMING_CALL;
+                                                              //PlayPhoneNumBreakoff = FALSE;
+                                                      #ifdef FUNC_SPI_KEY_SOUND_EN
+                                                              BluetoothPlayPhoneNum();
+                                                      #endif
+                                                      }
+                                              }
+                                              break;
+                                      default:
+                                              break;
+                              }
+                      }
+              }*/
+              
+              //#pragma disable 
+              
+              
+              /*BYTE GetRxQueueLen()
+              {
+                      return ((RxQueueTail + RX_QUEUE_LENGTH - RxQueueHead) % RX_QUEUE_LENGTH);
+              }*/
+              
+              
+              
+              
+              
+              /*BOOL BluetoothRcvCmd()
+              {
+                      BYTE Temp;
+                      BYTE CheckSum;
+C51 COMPILER V9.00   BLUETOOTH_CMD                                                         05/16/2015 15:55:50 PAGE 6   
+
+                      BYTE i;
+                      TIMER Timer;
+              
+                      TimeOutSet(&Timer, 500);
+                      while(USEGetRxQueueLen() > 0)
+                      {       
+                              if(IsTimeOut(&Timer))
+                              {
+                                      //DBG(("timeout\n"));
+                                      return FALSE;
+                              }               
+                              Temp = GetRxQueueData();        
+                              if(BluetoothRxIndex == -2)
+                              {
+                                      if(Temp==0xAA)
+                                      {
+                                              //FastUartSendByte(0xF1);
+                                              BluetoothRxIndex =-1;
+                                      }
+                              }
+                              else if(BluetoothRxIndex == -1)
+                              {
+                                      if(Temp==0x00)
+                                      {
+                                              //FastUartSendByte(0xF2);
+                                              BluetoothRxIndex = 0;
+                                      }
+                              }
+                              else 
+                              {       
+                                      //SlaveHead=0;
+                                      gBluetoothCmd[BluetoothRxIndex++] = Temp;               //CmdDataLength + CmdData[] + CRC
+                                      //»Áπ˚≥§∂»”Ú≥¨π˝◊Ó¥Û≥§∂»£¨‘Ú÷ÿ–¬Ω” ’
+                                      if((gBluetoothCmd[0] > MAX_CMD_DATA_LEN))
+                                      {               
+                                              BluetoothRxIndex = -2;
+                                              continue;
+                                      }
+                                      //FastUartSendByte(0xF0);
+                                      //FastUartSendByte(Temp);
+                                      if(BluetoothRxIndex >= gBluetoothCmd[0] + 2)    //CSΩ” ’ÕÍ
+                                      {
+                                              CheckSum = 0;
+                                              for (i=0; i<BluetoothRxIndex-1; i++)
+                                              {
+                                                      CheckSum += gBluetoothCmd[i];
+                                              }
+                                              CheckSum = 0xFF - CheckSum + 1;
+                                              BluetoothRxIndex = -2;  
+                                              //FastUartSendByte(0xFF);
+                                              return TRUE;  //»Á–Ë“™CheckSum‘Ú◊¢ Õ¥À––
+                                              if(CheckSum == gBluetoothCmd[BluetoothRxIndex-1])
+                                              {
+                                                      return TRUE;
+                                              }
+                                              else
+                                              {
+              
+                                                      return FALSE;
+                                              }                       
+                                      }
+                              }
+C51 COMPILER V9.00   BLUETOOTH_CMD                                                         05/16/2015 15:55:50 PAGE 7   
+
+                      }
+                      return FALSE;
+              }*/
+              
+              VOID BluetoothSendCmd(BYTE* cmd, BYTE cmdLength)
+              {
+                      int i;
+                      for (i=0; i<cmdLength; i++)
+                      {
+                              I51UartSendByte(cmd[i]);
+                      }
+              }
+              
+              
+              #endif
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

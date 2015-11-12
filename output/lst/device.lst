@@ -1,0 +1,372 @@
+C51 COMPILER V9.00   DEVICE                                                                05/16/2015 15:55:47 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE DEVICE
+OBJECT MODULE PLACED IN .\output\obj\device.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE device\device.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(.\c
+                    -onfig;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\bl
+                    -uetooth;.\i2c) DEBUG PRINT(.\output\lst\device.lst) OBJECT(.\output\obj\device.obj)
+
+line level    source
+
+   1          #include "syscfg.h"
+   2          #include "device.h"
+   3          #include "device_hcd.h"
+   4          #include "radio_app_interface.h"
+   5          #include "radio_ctrl.h"
+   6          #include "debug.h"
+   7          #include "seg_panel.h"
+   8          #include "seg_led_disp.h"
+   9          #include "bluetooth_ctrl.h"
+  10          
+  11          
+  12          
+  13          BOOL IsCardLinkFlag = FALSE;
+  14          BOOL IsUsbLinkFlag = FALSE;
+  15          BOOL IsLineInLinkFlag = FALSE;
+  16          BOOL IsPcLinkFlag = FALSE;
+  17          #ifdef OPTION_CHARGER_DETECT
+              BOOL IsChargerLinkFlag = FALSE;
+              #endif
+  20          
+  21          #ifdef  FUNC_HEADPHONE_DETECT_EN
+              BOOL IsHeadphoneLinkFlag = TRUE;
+              #endif
+  24          
+  25          #ifdef FUNC_LED_LINEIN_MULTIPLE_EN
+              TIMER gLineInCheckWaitTimer;
+              #endif
+  28          
+  29          #ifdef FUNC_SEG_LED_EN
+              extern BOOL gLedDispRefreshFlag;
+              #endif
+  32          
+  33          
+  34          /////////////////////////////////////////////////////////////////////////////////////
+  35          #ifdef FUNC_USB_EN
+              //检查U盘连接状态
+              BOOL IsUSBLink(VOID)
+              {
+                      return HostIsLink();
+              }
+              
+              
+              //检查是否有新插入U盘
+              BOOL IsUsbInsert(VOID)
+              {       
+                      BOOL Temp = IsUsbLinkFlag;
+                      IsUsbLinkFlag = IsUSBLink();
+                      return (!Temp && IsUsbLinkFlag);
+              }
+              #endif
+  51          
+  52          
+  53          #if (defined(FUNC_CARD_EN) || defined(FUNC_AUDIO_EN) || defined(FUNC_READER_EN) || defined(FUNC_AUDIO_READ
+C51 COMPILER V9.00   DEVICE                                                                05/16/2015 15:55:47 PAGE 2   
+
+             -ER_EN))
+  54          
+  55          #define         CARD_DETECT_TIME        300
+  56          
+  57          extern VOID CardSdClkStop(VOID);
+  58          extern BOOL gCardPrevLinkState;
+  59          
+  60          TIMER   CardDctTimer;
+  61          
+  62          
+  63          //检查SD卡连接状态
+  64          BOOL IsCardLink(VOID)
+  65          {
+  66   1      #define CARD_JETTER_TIME 10//防抖时间
+  67   1      
+  68   1              static BOOL CardLinkFlag = FALSE;
+  69   1      
+  70   1      #ifdef  SD_DETECT_HW_SW
+                      static BOOL IsWaitCardPwrup = TRUE;
+              
+                      CardSdClkStop();        //停止SD的CLK的输出，减少对系统的干扰   
+              
+              #if (defined(SD_DETECT_PIN_USE_A4) || defined(SD_DETECT_PIN_USE_D6) || defined(SD_DETECT_PIN_USE_E3))
+                      SET_CARD_NOT_TO_GPIO();         //将SD_CLK变成普通GPIO
+              #endif
+              
+                      ClrGpioRegBit(CARD_DETECT_PORT_DS, CARD_DETECT_BIT);            //使用弱上拉可以提高SD卡兼容性
+                      ClrGpioRegBit(CARD_DETECT_PORT_PU, CARD_DETECT_BIT);
+                      ClrGpioRegBit(CARD_DETECT_PORT_PD, CARD_DETECT_BIT);    
+                      ClrGpioRegBit(CARD_DETECT_PORT_OE, CARD_DETECT_BIT);
+                      SetGpioRegBit(CARD_DETECT_PORT_IE, CARD_DETECT_BIT);
+                      //GPIO口做硬检测时，为信号建立等待一段时间
+                      //电阻使用2.2K时,等待10us；使用10K时, 需要等20us才能稳定检测
+                      WaitUs(20);
+              
+                      if(GetGpioReg(CARD_DETECT_PORT_IN) & CARD_DETECT_BIT)
+                      {
+                              //DBG(("NO CARD HW IN\n"));
+                              IsWaitCardPwrup = TRUE;
+                              CardLinkFlag = FALSE;
+                              return FALSE;
+                      }
+                      else
+                      {
+                              if(IsWaitCardPwrup == TRUE)
+                              {
+                                      IsWaitCardPwrup = FALSE;
+                                      gCardPrevLinkState = TRUE;
+                                      CardOpen();
+                                      TimeOutSet(&CardDctTimer, CARD_DETECT_TIME);    //用于卡的插入消抖，当发现卡插入，到执行软检测延时CARD_DET
+             -ECT_TIME时间
+                              }
+                      }
+              
+              #ifdef  SD_DETECT_PIN_USE_A4
+                      SET_CARD_TO_A3A4A5();   //将A4恢复设置为SD总线
+              #endif
+                      
+              #ifdef  SD_DETECT_PIN_USE_D6
+                      SET_CARD_TO_D5D6D7();   //将D6恢复设置为SD总线
+              #endif
+                      
+C51 COMPILER V9.00   DEVICE                                                                05/16/2015 15:55:47 PAGE 3   
+
+              #ifdef  SD_DETECT_PIN_USE_E3
+                      SET_CARD_TO_A0E2E3();   //将E3恢复设置为SD总线
+              #endif
+                      
+                      //本次硬件检测到卡插入后，如果前一次卡的连接状态为FALSE时，会按timeout时间去执行一次软件检测。
+                      //或者在卡的通信过程中出现错误，也会执行一次软件检测。
+              
+                      if(((CardLinkFlag == FALSE) && IsTimeOut(&CardDctTimer)) || (gCardPrevLinkState == FALSE))
+              #else //!SD_DETECT_HW_SW
+ 123   1              if(IsTimeOut(&CardDctTimer) || (gCardPrevLinkState == FALSE))  
+ 124   1      #endif
+ 125   1              {
+ 126   2                      //DBG(("CARD SW\n"));           
+ 127   2                      TimeOutSet(&CardDctTimer, CARD_DETECT_TIME);
+ 128   2                      gCardPrevLinkState = TRUE;
+ 129   2                      //执行本次软检测
+ 130   2                      CardLinkFlag = CardDetect();
+ 131   2                      //停止SD的CLK的输出,减少对系统干扰
+ 132   2                      CardSdClkStop();
+ 133   2      
+ 134   2                      WaitMs(20);
+ 135   2                      //DBG1(("CardLinkFlag: %d\n", (WORD)CardLinkFlag));
+ 136   2              }
+ 137   1      
+ 138   1              return CardLinkFlag;
+ 139   1      }
+ 140          
+ 141          
+ 142          //检查是否有新插入的SD卡
+ 143          BOOL IsCardInsert(VOID)
+ 144          {
+ 145   1              BOOL Temp = IsCardLinkFlag;
+ 146   1      
+ 147   1              IsCardLinkFlag = IsCardLink();
+ 148   1      //      DBG(("CardIn:%d, %d\n", (WORD)Temp, (WORD)IsCardLinkFlag));
+ 149   1              return (!Temp && IsCardLinkFlag);
+ 150   1      }
+ 151          #endif
+ 152          
+ 153          
+ 154          #ifdef FUNC_LINEIN_EN
+ 155          //检查line-in连接状态
+ 156          //使能内部上拉。无line-in时，检测口为高电平，有line-in时，检测口为低电平
+ 157          BOOL IsLineInLink(VOID)
+ 158          {
+ 159   1      #define LINEIN_JETTER_TIME 20//防抖时间
+ 160   1              static BYTE LowLevelTimes = 0;
+ 161   1      #ifdef LINEIN_DETECT_BIT
+ 162   1      #ifdef FUNC_LED_LINEIN_MULTIPLE_EN
+                      if(!IsTimeOut(&gLineInCheckWaitTimer))  
+                      {
+                              return IsLineInLinkFlag;
+                      }
+                      TimeOutSet(&gLineInCheckWaitTimer, 150);
+                              
+              #if (defined(FUNC_7PIN_SEG_LED_EN) || defined(FUNC_6PIN_SEG_LED_EN))
+                      gLedDispRefreshFlag = FALSE;   
+                      LedPinGpioInit();
+                      baGPIOCtrl[LINEIN_DETECT_PORT_IE] |= LINEIN_DETECT_BIT;
+                      baGPIOCtrl[LINEIN_DETECT_PORT_PU] &= ~LINEIN_DETECT_BIT;
+              #endif
+              #else
+C51 COMPILER V9.00   DEVICE                                                                05/16/2015 15:55:47 PAGE 4   
+
+ 176   1              baGPIOCtrl[LINEIN_DETECT_PORT_IE] |= LINEIN_DETECT_BIT;
+ 177   1              baGPIOCtrl[LINEIN_DETECT_PORT_PU] &= ~LINEIN_DETECT_BIT;
+ 178   1              baGPIOCtrl[LINEIN_DETECT_PORT_PD] &= ~LINEIN_DETECT_BIT;        
+ 179   1              baGPIOCtrl[LINEIN_DETECT_PORT_OE] &= ~LINEIN_DETECT_BIT;
+ 180   1      #endif
+ 181   1              WaitUs(10);
+ 182   1      
+ 183   1              if(baGPIOCtrl[LINEIN_DETECT_PORT_IN] & LINEIN_DETECT_BIT)
+ 184   1              {
+ 185   2                      IsLineInLinkFlag = FALSE;
+ 186   2                      LowLevelTimes = 0;
+ 187   2              }
+ 188   1              else
+ 189   1              {
+ 190   2                      if(LowLevelTimes < LINEIN_JETTER_TIME)
+ 191   2                      {
+ 192   3                              LowLevelTimes++;
+ 193   3                      }
+ 194   2                      else
+ 195   2                      {
+ 196   3                              IsLineInLinkFlag = TRUE;
+ 197   3                      }
+ 198   2              }
+ 199   1              
+ 200   1      #ifdef FUNC_LED_LINEIN_MULTIPLE_EN
+                      gLedDispRefreshFlag = TRUE;
+              #endif
+ 203   1      
+ 204   1      #else
+                      IsLineInLinkFlag = TRUE;
+              #endif
+ 207   1              return IsLineInLinkFlag;
+ 208   1      }
+ 209          
+ 210          
+ 211          //检查是否有新插入line-in
+ 212          BOOL IsLineInInsert(VOID)
+ 213          {       
+ 214   1              BOOL Temp = IsLineInLinkFlag;
+ 215   1      
+ 216   1              IsLineInLinkFlag = IsLineInLink();
+ 217   1              return (!Temp && IsLineInLinkFlag);
+ 218   1      }
+ 219          #endif
+ 220          
+ 221          
+ 222          #ifdef FUNC_RADIO_EN
+              //检查是否有插入Radio 模块
+              BOOL IsRadioLink(VOID)                  
+              {
+                      if(Radio_Name == RADIO_NONE)
+                      {
+                              RadioInit();
+                      }
+                      return (Radio_Name != RADIO_NONE);
+              }
+              #endif
+ 233          
+ 234          
+ 235          #if (defined(FUNC_AUDIO_EN) || defined(FUNC_READER_EN) || defined(FUNC_AUDIO_READER_EN))
+ 236          //检查PC连接状态
+ 237          BOOL IsPcLink(VOID)                     
+C51 COMPILER V9.00   DEVICE                                                                05/16/2015 15:55:47 PAGE 5   
+
+ 238          {
+ 239   1              return UsbDeviceIsLink();
+ 240   1      }
+ 241          
+ 242          
+ 243          //检查是否有新插入PC
+ 244          BOOL IsPcInsert(VOID)
+ 245          {       
+ 246   1              BOOL Temp = IsPcLinkFlag;
+ 247   1      
+ 248   1              IsPcLinkFlag = IsPcLink();
+ 249   1              return (!Temp && IsPcLinkFlag);
+ 250   1      }
+ 251          #endif
+ 252          
+ 253          
+ 254          #ifdef OPTION_CHARGER_DETECT
+              //硬件检测PC 或充电器连接状态
+              //使能内部下拉。无PC或充电器连接时，检测口为低电平，有时检测口为高电平
+              BOOL IsInCharge(VOID)
+              {
+                      baGPIOCtrl[CHARGE_DETECT_PORT_PU] |= CHARGE_DETECT_BIT;
+                      baGPIOCtrl[CHARGE_DETECT_PORT_PD] |= CHARGE_DETECT_BIT;
+                      baGPIOCtrl[CHARGE_DETECT_PORT_OE] &= ~CHARGE_DETECT_BIT;
+                      baGPIOCtrl[CHARGE_DETECT_PORT_IE] |= CHARGE_DETECT_BIT;
+                      WaitUs(2);
+                      
+                      if(baGPIOCtrl[CHARGE_DETECT_PORT_IN] & CHARGE_DETECT_BIT)
+                      {
+                              return TRUE;
+                      }       
+              #if 0//def AU6210K_NR_D_8_CSRBT
+                      baGPIOCtrl[GPIO_E_PU] |= (1 << 1);
+                      baGPIOCtrl[GPIO_E_PD] |= (1 << 1);
+                      baGPIOCtrl[GPIO_E_OE] &= ~(1 << 1);
+                      baGPIOCtrl[GPIO_E_IE] |= (1 << 1);
+                      WaitUs(2);
+              #endif
+                      return FALSE;
+              }
+              
+              
+              //检查是否有新插入PC或充电器
+              BOOL IsChargerInsert(VOID)
+              {       
+                      BOOL Temp = IsChargerLinkFlag;
+              
+                      IsChargerLinkFlag = IsInCharge();
+                      return ((!Temp) && IsChargerLinkFlag);
+              }
+              #endif
+ 289          
+ 290          
+ 291          #ifdef  FUNC_HEADPHONE_DETECT_EN
+              //检查HeadPhone连接状态
+              //使能内部上拉。无HeadPhone时，检测口为高电平，有HeadPhone时，检测口为低电平
+              BOOL IsHeadPhoneLink(VOID)
+              {       
+              #ifdef HEADPHONE_DETECT_BIT
+                      baGPIOCtrl[HEADPHONE_DETECT_PORT_PU] &= ~HEADPHONE_DETECT_BIT;
+                      baGPIOCtrl[HEADPHONE_DETECT_PORT_PD] &= ~HEADPHONE_DETECT_BIT;  
+                      baGPIOCtrl[HEADPHONE_DETECT_PORT_OE] &= ~HEADPHONE_DETECT_BIT;
+C51 COMPILER V9.00   DEVICE                                                                05/16/2015 15:55:47 PAGE 6   
+
+                      baGPIOCtrl[HEADPHONE_DETECT_PORT_IE] |= HEADPHONE_DETECT_BIT;
+                      WaitUs(2);
+                      if(baGPIOCtrl[HEADPHONE_DETECT_PORT_IN] & HEADPHONE_DETECT_BIT)
+                      {
+                              IsHeadphoneLinkFlag = FALSE;
+                      }
+                      else
+                      {
+                              IsHeadphoneLinkFlag = TRUE;
+                      }       
+                      
+              #ifdef FUNC_HEADPHONE_SINGLE_LED_EN     //耳机检测端口与单个LED端口共用
+                      baGPIOCtrl[HEADPHONE_DETECT_PORT_IE] &= ~HEADPHONE_DETECT_BIT;
+                      baGPIOCtrl[HEADPHONE_DETECT_PORT_OE] |= HEADPHONE_DETECT_BIT;
+              #endif
+              #endif
+              
+                      return IsHeadphoneLinkFlag;
+              }
+              
+              
+              //检查是否有新插入HeadPhone
+              BOOL IsHeadPhonInsert(VOID)
+              {       
+                      BOOL Temp = IsHeadphoneLinkFlag;
+                      
+                      IsHeadphoneLinkFlag = IsHeadPhoneLink();
+                      return ((!Temp) && IsHeadphoneLinkFlag);
+              }
+              
+              #endif
+ 331          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    286    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     11       3
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,335 @@
+C51 COMPILER V9.00   PRESEARCH                                                             05/16/2015 15:55:47 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE PRESEARCH
+OBJECT MODULE PLACED IN .\output\obj\presearch.obj
+COMPILER INVOKED BY: d:\Keil C51\C51\BIN\C51.EXE fs\presearch.c LARGE OBJECTADVANCED OPTIMIZE(9,SIZE) BROWSE INCDIR(.\co
+                    -nfig;.\device;.\display;.\fs;.\key;.\lib_if;.\play;.\system;.\library;.\power;.\radio;.\eeprom;.\spi_flash;.\slave;.\blu
+                    -etooth;.\i2c) DEBUG PRINT(.\output\lst\presearch.lst) OBJECT(.\output\obj\presearch.obj)
+
+line level    source
+
+   1          #include "syscfg.h"
+   2          #include "file.h"
+   3          #include "debug.h"
+   4          #include "spi_fs.h"
+   5          #include "playctrl.h"
+   6          #include "breakpoint.h"
+   7          
+   8          FS_ERROR gFsError;
+   9          extern WORD gFileRdSize;
+  10          BYTE gFsInitOK = 0;
+  11          
+  12          #ifdef  FUNC_SPI_UPDATE_EN
+  13          extern BYTE gIsMVFFileFind;
+  14          extern FILE gUpdataFile;
+  15          #endif
+  16          
+  17          #ifdef FUNC_QUICK_RESPONSE_EN
+              extern BOOL IsSwitchMode;
+              extern BOOL QuickResponse(VOID);
+              extern VOID KeyEventGet(VOID);
+              #endif
+  22          
+  23          #ifdef FUNC_ENCRYPT_DECODE_EN
+              BOOL gIsEncryptFile = FALSE;
+              #endif
+  26          
+  27          #ifdef FUNC_ENCRYPT_DECODE_EN
+              BOOL IsEncryptSong(VOID)
+              {
+                  return      gIsEncryptFile;
+              }
+              #else
+  33          BOOL IsEncryptSong(VOID)
+  34          {
+  35   1          return FALSE;
+  36   1      }
+  37          #endif
+  38          
+  39          
+  40          
+  41          
+  42          //判断文件的类型，由文件系统底层调用
+  43          BYTE FileGetType(VOID)
+  44          {
+  45   1              BYTE ExtFileName[3];
+  46   1              BOOL Ret;
+  47   1      
+  48   1              ExtFileName[0] = gCurrentEntry->FileName[8];
+  49   1              ExtFileName[1] = gCurrentEntry->FileName[9];
+  50   1              ExtFileName[2] = gCurrentEntry->FileName[10];
+  51   1      
+  52   1              if((ExtFileName[0] == 'M') && (ExtFileName[1] == 'P') && (ExtFileName[2] == '3'))
+  53   1              {
+C51 COMPILER V9.00   PRESEARCH                                                             05/16/2015 15:55:47 PAGE 2   
+
+  54   2                      Ret = FILE_TYPE_MP3;
+  55   2      #ifdef FUNC_ENCRYPT_DECODE_EN
+                              gIsEncryptFile = FALSE;
+              #endif
+  58   2                      
+  59   2              }
+  60   1      #ifdef FUNC_ENCRYPT_DECODE_EN
+                      else if(memcmp(ExtFileName, ENCRYPT_EXT, 3) == 0)
+                      {
+                          Ret = FILE_TYPE_MP3;
+                              gIsEncryptFile = TRUE;//加密文件 
+                      }
+              #endif
+  67   1              
+  68   1              else
+  69   1              {
+  70   2                      //DBG(("FILE_TYPE_UNKNOWN!!\n"));
+  71   2                      Ret = FILE_TYPE_UNKNOWN;
+  72   2              }
+  73   1      
+  74   1      #ifdef FUNC_BREAK_POINT_EN      
+  75   1              //匹配记录歌曲相关信息，寻找断电记忆歌曲
+  76   1              if((gFsInitOK == 0) && (Ret != FILE_TYPE_UNKNOWN))
+  77   1              {
+  78   2                      FindLatestSong();       
+  79   2              }
+  80   1      #endif
+  81   1      
+  82   1              return Ret;
+  83   1      }
+  84          
+  85          
+  86          //统计文件和文件夹总数
+  87          BOOL PreSearch(VOID)
+  88          {
+  89   1              ENTRY_TYPE EntryType;
+  90   1      
+  91   1              //DBG(("PreSearch start!\n"));
+  92   1              
+  93   1      #ifdef FUNC_HIDDEN_FOLD_EN
+                      HiddenFolderEnable = TRUE;              //播放隐藏文件夹中的歌曲        
+              #else
+  96   1              HiddenFolderEnable = FALSE;             //忽略隐藏文件夹中的歌曲         
+  97   1      #endif
+  98   1      
+  99   1      #ifdef FUNC_RECYCLED_FOLD_EN
+                      RecycledFolderEnable = TRUE;    //播放回收站文件夹中的歌曲      
+              #else
+ 102   1              RecycledFolderEnable = FALSE;   //忽略回收站文件夹中的歌曲
+ 103   1      #endif
+ 104   1      
+ 105   1              DirSetStartEntry(gFsInfo.RootStart, 0, TRUE);
+ 106   1              FSINFO_Init();
+ 107   1      
+ 108   1              gFolderDirStart = gFsInfo.RootStart;
+ 109   1      
+ 110   1              while(1)
+ 111   1              {
+ 112   2                      FeedWatchDog();
+ 113   2                              
+ 114   2                      EntryType = DirGetNextEntry();
+ 115   2      
+C51 COMPILER V9.00   PRESEARCH                                                             05/16/2015 15:55:47 PAGE 3   
+
+ 116   2                      if(gFsInfo.FileSum > 65534)
+ 117   2                      {
+ 118   3                              break;  
+ 119   3                      }
+ 120   2                      if(gEntryOffset == 0)
+ 121   2                      {       
+ 122   3                              FSINFO_SaveFdi();                       
+ 123   3      #ifdef FUNC_QUICK_RESPONSE_EN
+                                      //强行退出
+                                      KeyEventGet();
+                                      if(QuickResponse())
+                                      {
+                                              return FALSE;   
+                                      }
+              #endif
+ 131   3                      }
+ 132   2      
+ 133   2                      switch(EntryType)
+ 134   2                      {
+ 135   3                              case ENTRY_FILE:        //是歌曲
+ 136   3                                      if(FileGetType() != FILE_TYPE_UNKNOWN)
+ 137   3                                      {
+ 138   4                                              //DBG(("找到歌曲：%-.8s%-.3s\n", &gCurrentEntry->FileName[0], &gCurrentEntry->FileName[8])); 
+ 139   4                                              gFsInfo.FileSum++;
+ 140   4                                              gFsInfo.FileSumInFolder++;
+ 141   4                                              //DBG(("\n******gFsInfo.FileSum:%u, gFsInfo.FileSumInFolder:%u\n",gFsInfo.FileSum,gFsInfo.FileSumInFo
+             -lder));
+ 142   4      #ifdef FUNC_BREAK_POINT_EN
+ 143   4                                              if((gIsFindLastestSong == TRUE) && (gCurFileNum == 0))
+ 144   4                                              {                               
+ 145   5                                                      gCurFileNum = gFsInfo.FileSum; //记录歌曲号
+ 146   5                                                      gCurFileNumInFolder = gFsInfo.FileSumInFolder; //记录歌曲号
+ 147   5                                                      gCurFolderNum = gFsInfo.FolderSum; //记录文件夹号
+ 148   5                                                      //DBG(("\n******gPlayCtrl.FolderEnable:%bu, gCurFileNum:%u, gCurFileNumInFolde:%u, gCurFolderNum:%u\
+             -n",gPlayCtrl.FolderEnable, gCurFileNum, gCurFileNumInFolder, gCurFolderNum));
+ 149   5                                              }
+ 150   4      #endif
+ 151   4                                      }
+ 152   3      
+ 153   3      #ifdef FUNC_SPI_UPDATE_EN
+ 154   3                                      //检查是否为SPI FLASH升级文件：*.MVF
+ 155   3                                      //只检查根目录
+ 156   3                                      if((gFsInfo.FolderSum == 1) && (gIsMVFFileFind != 1))
+ 157   3                                      {
+ 158   4                                              if(memcmp(&gCurrentEntry->FileName[8], "MVF", 3) == 0)
+ 159   4                                              {
+ 160   5                                                      extern BOOL FileGetInfo(FILE* File);
+ 161   5      
+ 162   5                                                      gIsMVFFileFind = 1;
+ 163   5                                                      FileGetInfo(&gUpdataFile);
+ 164   5                                              }       
+ 165   4                                      }       
+ 166   3      #endif
+ 167   3                                      break;
+ 168   3      
+ 169   3                              case ENTRY_FOLDER:      //是文件夹，下次循环不会进入这个文件夹内
+ 170   3                                      gFsInfo.FolderNumInFolder++;
+ 171   3                                      //DBG(("ENTRY_FOLDER: %d\n", gFsInfo.FolderNumInFolder));
+ 172   3                                      break;
+ 173   3                              
+ 174   3                              case ENTRY_END:         //返回上一级文件夹，调整之前记录的部分节点
+ 175   3                                      FSINFO_ChangeFileNum();
+C51 COMPILER V9.00   PRESEARCH                                                             05/16/2015 15:55:47 PAGE 4   
+
+ 176   3      
+ 177   3                                      //记录根文件夹中的文件个数
+ 178   3                                      if(gFsInfo.FolderSum == 1)
+ 179   3                                      {
+ 180   4                                              gFsInfo.RootFileSum = gFsInfo.FileSum;
+ 181   4                                      }
+ 182   3      
+ 183   3                                      //回到当前文件夹的开头位置
+ 184   3                                      //DBG(("开始查找下一个文件夹的位置！\n"));
+ 185   3                                      RewindFolderStart();    
+ 186   3                                      
+ 187   3                                      //从当前位置，在整个文件系统中寻找下一个文件夹
+ 188   3                                      if(!FindNextFolder())   
+ 189   3                                      {       
+ 190   4                                              //DBG(("PreSearch end! %d ms \n", (WORD)PastTimeGet(&Timer))); 
+ 191   4                                              DBG(("PreSearch end!\n"));
+ 192   4                                              return TRUE;
+ 193   4                                      }
+ 194   3                                      else    //进入下一个文件夹成功
+ 195   3                                      {
+ 196   4                                              //DBG(("找到下一个文件夹，即将进入该文件夹！%-.8s\n", &gCurrentEntry->FileName[0]));
+ 197   4                                              gFsInfo.FolderSum++;
+ 198   4                                              gFsInfo.FolderNumInFolder = 0;
+ 199   4                                              gFsInfo.FileSumInFolder = 0;
+ 200   4                                              if(!DirEnterSubFolder())
+ 201   4                                              {
+ 202   5                                                      DBG(("进入子文件夹失败！\n"));
+ 203   5                                                      gFsInfo.FolderSum--;
+ 204   5                                              }                                       
+ 205   4                                              //DBG(("进入子文件夹成功！\n"));
+ 206   4                                      }
+ 207   3                                      break;
+ 208   3      
+ 209   3                              default:
+ 210   3                                      break;
+ 211   3                      }       
+ 212   2              }
+ 213   1      
+ 214   1              return TRUE;
+ 215   1      }
+ 216          
+ 217          
+ 218          //文件系统初始化，分析分区表，预搜索统计文件系统有关信息.
+ 219          BOOL FSInit(BYTE DeviceID)
+ 220          {                                               
+ 221   1              memset(&gFsInfo, 0, sizeof(FS_INFO));
+ 222   1              gFsInfo.DevID = DeviceID;
+ 223   1              gFsInfo.CurrFATSecNum = -1;
+ 224   1              gFsInfo.CurrDirSecNum = -1;
+ 225   1              gFsError = FS_ERROR_NONE;
+ 226   1              gFsInitOK = 0;
+ 227   1              gFileRdSize = 512;
+ 228   1      
+ 229   1              DBG(("gFileRdSize:0x%x\n", gFileRdSize));
+ 230   1              DBG((">>FsInit(%bd)\n", DeviceID));
+ 231   1      
+ 232   1      #ifdef FUNC_OTP_PLAY_EN
+                      if(gFsInfo.DevID == DEV_ID_OTP)
+                      {
+                              extern BOOL OtpFsInit(VOID);
+                              DBG(("OtpFsInit()\n"));
+                              return OtpFsInit();
+C51 COMPILER V9.00   PRESEARCH                                                             05/16/2015 15:55:47 PAGE 5   
+
+                      }
+              #endif
+ 240   1      
+ 241   1      #ifdef FUNC_SPI_PLAY_EN
+                      if(gFsInfo.DevID == DEV_ID_SPI)
+                      {
+                              extern BOOL SpiFlashFsInit(VOID);
+                              DBG(("SpiFlashFsInit()\n"));
+                              return SpiFlashFsInit();
+                      }
+              #endif
+ 249   1      
+ 250   1              if(!PartitionLoad())
+ 251   1              {
+ 252   2                      DBG(("PartitionLoad() error!\n"));
+ 253   2                      gFsError = FS_ERROR_PARTITION_LOAD;
+ 254   2                      gFsInitOK = 2;  //?????????????????????????????
+ 255   2                      return FALSE;
+ 256   2              }       
+ 257   1              DBG(("PartitionLoad() OK!\n"));
+ 258   1      
+ 259   1      #ifdef FUNC_BREAK_POINT_EN
+ 260   1              //先对gIsFindLastestSong清零一次
+ 261   1              gIsFindLastestSong = FALSE;
+ 262   1      #endif  
+ 263   1      
+ 264   1              if(!PreSearch())
+ 265   1              {
+ 266   2                      DBG(("PreSearch() error!\n"));
+ 267   2                      gFsError = FS_ERROR_FILE_LIST_CREATE;
+ 268   2                      gFsInitOK = 3;  //?????????????????????????????
+ 269   2                      return FALSE;
+ 270   2              }
+ 271   1              DBG(("PreSearch() OK\n"));
+ 272   1      
+ 273   1              if(gFsInfo.FileSum == 0)
+ 274   1              {
+ 275   2                      gFsError = FS_ERROR_NO_FILE;
+ 276   2              }
+ 277   1      
+ 278   1              DBG(("Song sum in disk: %U\n", gFsInfo.FileSum));
+ 279   1              DBG(("Folder sum in disk: %U\n", gFsInfo.FolderSum));
+ 280   1              DBG(("Valid folder sum in disk: %U\n", gFsInfo.ValidFolderSum));
+ 281   1              DBG(("***********************************************\n"));
+ 282   1              DBG(("\n"));
+ 283   1              gFsInitOK = 1;
+ 284   1              
+ 285   1      #ifdef FUNC_SPI_UPDATE_AUTO_EN
+                      if(gIsMVFFileFind)
+                      {
+                              DownloadMVFToFsh();
+                      }
+              #endif
+ 291   1      
+ 292   1              return TRUE;
+ 293   1      }
+ 294                                          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    640    ----
+   CONSTANT SIZE    =      4    ----
+C51 COMPILER V9.00   PRESEARCH                                                             05/16/2015 15:55:47 PAGE 6   
+
+   XDATA SIZE       =      2       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+   EDATA SIZE       =   ----    ----
+   HDATA SIZE       =   ----    ----
+   XDATA CONST SIZE =   ----    ----
+   FAR CONST SIZE   =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
